@@ -10,6 +10,8 @@ export default function RegisterForm() {
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [message, setMessage] = useState(null);
   const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -34,12 +36,12 @@ export default function RegisterForm() {
     setMessage(null);
 
     if (!validateForm()) return;
-
+    setLoading(true)
     try {
       const res = await fetch('/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: form.email, password: form.password }),
+        body: JSON.stringify({ name: form.name ,email: form.email, password: form.password }),
       });
 
       const data = await res.json();
@@ -49,10 +51,13 @@ export default function RegisterForm() {
         toast.success('Registered successfully!');
         setForm({ name: '', email: '', password: '' });
       } else {
-        setMessage(data.message || 'Something went wrong.');
+        toast.error(data.message || 'Something went wrong.');
       }
     } catch (err) {
       setMessage('Error submitting form');
+    }
+    finally{
+      setLoading(false)
     }
   };
 
@@ -131,12 +136,16 @@ export default function RegisterForm() {
           </div>
 
           <div>
-            <button
-              type="submit"
-              className="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
-            >
-              Sign up
-            </button>
+          <button
+            type="submit"
+            disabled={loading}
+            className={`flex w-full justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm ${
+              loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-indigo-500'
+            }`}
+          >
+            {loading ? 'Submitting...' : 'Sign up'}
+          </button>
+
           </div>
 
           {message && (
