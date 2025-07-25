@@ -326,7 +326,7 @@ export default function Home() {
     <Layout>
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p>Welcome back! Here&apos;s what&apos;s happening with your team today.</p>
+        <p>Welcome back!</p>
 
       </div>
       
