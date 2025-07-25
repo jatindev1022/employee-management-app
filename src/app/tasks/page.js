@@ -334,7 +334,7 @@ export default function TasksPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Task Management</h1>
-            <p className="text-gray-600 mt-1">Organize and track your team's progress</p>
+            <p className="text-gray-600 mt-1">Organize and track your Here&apos;s </p>
           </div>
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-6 bg-white rounded-lg p-2 shadow-sm border border-gray-200">

@@ -4,7 +4,7 @@ import Layout from '../../components/layout/Layout';
 import Button from '../../components/ui/Button';
 import Loader from '../../components/ui/Loader';
 import { Toaster, toast } from 'react-hot-toast';
-
+import Image from 'next/image';
 import { useState, useEffect } from 'react';
 
 export default function ProfilePage() {
@@ -210,15 +210,17 @@ export default function ProfilePage() {
               <div className="flex items-center space-x-6">
                 {/* Profile Picture */}
                 <div className="relative -mt-16">
-                  <img
-                    src={getCurrentImageSrc()}
-                    alt="Profile"
-                    className="w-24 h-24 rounded-full object-cover ring-4 ring-white shadow-lg"
-                    onError={(e) => {
-                      // Fallback to default image if current image fails to load
-                      e.target.src = "https://readdy.ai/api/search-image?query=professional%20business%20person%20avatar%20headshot%20with%20friendly%20smile%2C%20clean%20background%2C%20corporate%20style%2C%20high%20quality%20portrait%20male%20developer%20john&width=120&height=120&seq=profile-main&orientation=squarish";
-                    }}
-                  />
+                <Image
+                  src={getCurrentImageSrc() || "https://readdy.ai/api/search-image?query=professional%20business%20person%20avatar%20headshot%20with%20friendly%20smile%2C%20clean%20background%2C%20corporate%20style%2C%20high%20quality%20portrait%20male%20developer%20john&width=120&height=120&seq=profile-main&orientation=squarish"}
+                  alt="Profile"
+                  width={96} // 24 * 4 = 96px
+                  height={96}
+                  className="rounded-full object-cover ring-4 ring-white shadow-lg"
+                  onError={() => {
+                    // Note: next/image does not support native onError fallback.
+                    // If you need fallback logic, use a state-based workaround instead.
+                  }}
+                />
                   {isEditing && (
                     <label className="absolute bottom-0 right-0 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center cursor-pointer hover:bg-blue-700 transition-colors">
                       <input
