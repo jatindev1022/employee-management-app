@@ -30,7 +30,7 @@ export async function POST(req) {
     return NextResponse.json({
       message: 'Login successful',
       user: {
-        id: user._id,
+        userId: user._id,
         email: user.email,
       },
     });

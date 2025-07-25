@@ -56,8 +56,9 @@ export default function LoginForm() {
       const data = await res.json();
   
       if (res.ok) {
+        localStorage.setItem('userId', data.user.userId);
         toast.success('Login successfully!');
-        router.push('/');
+        router.push('/dashboard');
       } else {
         toast.error(data.message || 'Login failed');
       }
@@ -149,8 +150,8 @@ export default function LoginForm() {
           <p className="mt-10 text-center text-sm text-gray-500">
             Not a member?{' '}
             <Link href="/register" className="font-semibold text-indigo-600 hover:text-indigo-500">
-            Sign Up
-        </Link>
+                Sign Up
+            </Link>
           </p>
         </div>
       </div>
