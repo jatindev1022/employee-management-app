@@ -4,10 +4,14 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
-import Modal from '../ui/Modal';
+import Modal from '@/components/ui/Modal';
 import Button from '../ui/Button';
 
+
+
 function QuickAddModal({ isOpen, onClose }) {
+ 
+  console.log(isOpen, " is open")
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -31,7 +35,7 @@ function QuickAddModal({ isOpen, onClose }) {
   };
   
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Quick Add Task" size="lg">
+    <Modal isOpen={isOpen} onClose={onClose} title="Quick Add Task" size="sm">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Task Title</label>
@@ -218,7 +222,8 @@ export default function Sidebar({ isOpen, onClose }) {
           </div>
         </div>
       </div>
-      
+   
+
       <QuickAddModal 
         isOpen={showQuickAddModal} 
         onClose={() => setShowQuickAddModal(false)} 
