@@ -7,6 +7,12 @@ import { NextResponse } from 'next/server';
 import { connectToDB } from '@/lib/mongodb';
 import User from '@/models/User';
 import mongoose from 'mongoose';
+import { cloudinary } from '@/lib/cloudinary';
+import formidable from 'formidable';
+
+
+
+
 
 export async function GET(req) {
   try {
@@ -51,17 +57,13 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Invalid User ID' }, { status: 400 });
     }
 
-    // Find the existing user first
     const existingUser = await User.findById(userId);
     if (!existingUser) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Build update object - only include fields that are not null/empty
     const update = {};
-    
     const fields = ['firstName', 'lastName', 'email', 'phone', 'bio', 'department', 'position', 'location'];
-    
     fields.forEach(field => {
       const value = formData.get(field);
       if (value !== null && value !== '') {
@@ -69,81 +71,61 @@ export async function POST(req) {
       }
     });
 
-    // Handle profile image upload
     const file = formData.get('profileImage');
-    if (file && typeof file === 'object' && file.size > 0) {
+
+    if (file && typeof file === 'object' && 'arrayBuffer' in file && file.size > 0) {
+      if (!file.type.startsWith('image/')) {
+        return NextResponse.json({ error: 'Only image files are allowed' }, { status: 400 });
+      }
+
+      const maxSize = 5 * 1024 * 1024;
+      if (file.size > maxSize) {
+        return NextResponse.json({ error: 'File size must be less than 5MB' }, { status: 400 });
+      }
+
       try {
-        // Validate file type
-        if (!file.type.startsWith('image/')) {
-          return NextResponse.json({ error: 'Only image files are allowed' }, { status: 400 });
-        }
-
-        // Validate file size (5MB limit)
-        const maxSize = 5 * 1024 * 1024; // 5MB
-        if (file.size > maxSize) {
-          return NextResponse.json({ error: 'File size must be less than 5MB' }, { status: 400 });
-        }
-
         const buffer = Buffer.from(await file.arrayBuffer());
-        const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
+        const base64Image = `data:${file.type};base64,${buffer.toString('base64')}`;
 
-        // Ensure uploads directory exists
-        await fs.mkdir(uploadsDir, { recursive: true });
+        const uploaded = await cloudinary.uploader.upload(base64Image, {
+          folder: 'profile_pics',
+        });
 
-        // Generate unique filename
-        const fileExtension = path.extname(file.name);
-        const filename = `profile-${userId}-${Date.now()}-${uuidv4()}${fileExtension}`;
-        const filePath = path.join(uploadsDir, filename);
+        update.profileImage = uploaded.secure_url;
 
-        // Save the new file
-        await fs.writeFile(filePath, buffer);
-        
-        // Delete old profile image if it exists
-        if (existingUser.profileImage && existingUser.profileImage.startsWith('/uploads/')) {
-          const oldImagePath = path.join(process.cwd(), 'public', existingUser.profileImage);
-          try {
-            await fs.unlink(oldImagePath);
-            console.log('Old image deleted:', oldImagePath);
-          } catch (deleteError) {
-            console.warn('Could not delete old image:', deleteError.message);
-            // Don't fail the request if we can't delete the old image
-          }
-        }
-
-        // Set the new image path
-        update.profileImage = `/uploads/${filename}`;
-        
       } catch (fileError) {
-        console.error('File upload error:', fileError);
         return NextResponse.json({ error: 'Failed to upload image' }, { status: 500 });
       }
     }
 
-    // Update user in database
     const updatedUser = await User.findByIdAndUpdate(
-      userId, 
-      { $set: update }, 
+      userId,
+      { $set: update },
       { new: true, runValidators: true }
-    ).lean(); // Use lean() for better performance
+    ).lean();
 
     if (!updatedUser) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      return NextResponse.json({ error: 'User not found after update' }, { status: 404 });
     }
 
-    // Return success with updated user data
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: true,
       message: 'Profile updated successfully',
       user: updatedUser
     }, { status: 200 });
 
   } catch (error) {
-    console.error('Profile update error:', error);
-    return NextResponse.json({ 
-      error: error.message || 'Failed to update profile' 
+    return NextResponse.json({
+      error: error.message || 'Failed to update profile'
     }, { status: 500 });
   }
 }
+
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
 
 // Optional: Add DELETE method to handle profile image deletion
 export async function DELETE(req) {
