@@ -5,13 +5,13 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import Modal from '@/components/ui/Modal';
-import Button from '../ui/Button';
+import Button from '@/components/ui/Button';
 
 
 
 function QuickAddModal({ isOpen, onClose }) {
  
-  console.log(isOpen, " is open")
+  // console.log(isOpen, " is open")
   const [formData, setFormData] = useState({
     title: '',
     description: '',
