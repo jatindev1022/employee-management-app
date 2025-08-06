@@ -3,6 +3,9 @@ import Project from '@/models/Project';
 import { NextResponse } from 'next/server';
 
 
+
+
+
 export async function POST(req){
     try{
         await connectToDB();
@@ -61,5 +64,22 @@ export async function POST(req){
     catch (error) {
         console.error('[PROJECT_POST_ERROR]', error);
         return NextResponse.json({ success: false, message: 'Something went wrong' }, { status: 500 });
+    }
+}
+
+export  async function GET() {
+    try{
+        await connectToDB();
+
+        const projects= await Project.find();
+
+        return Response.json(projects); 
+    }
+    catch (error){
+        console.error('Error fetching projects:', error);
+    return new Response(
+      JSON.stringify({ message: 'Failed to fetch projects' }),
+      { status: 500 }
+    );
     }
 }
