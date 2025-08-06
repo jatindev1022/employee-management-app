@@ -67,12 +67,23 @@ export default function Topbar({ onMenuClick }) {
     const [availableMembers, setAvailableMembers] = useState([]);
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
-  
-    const teamMembers = {
-      frontend: ['Alice', 'Bob', 'Charlie'],
-      backend: ['Dave', 'Eva', 'Frank'],
-      design: ['Grace', 'Helen', 'Ivan'],
-    };
+    const [teamMembers ,setTeamMembers] =useState({});
+
+
+
+    useEffect(()=>{
+      const fetchTeamMembers= async()=>{
+        try {
+          const res = await fetch('/api/team-member');
+          const data = await res.json();
+          setTeamMembers(data); // example: { backend: [...], frontend: [...] }
+        } catch (err) {
+          console.error('Error fetching team members:', err);
+        }
+      };
+      fetchTeamMembers();
+    }, [isOpen]);
+
   
     const validate = () => {
       const newErrors = {};
@@ -101,6 +112,8 @@ export default function Topbar({ onMenuClick }) {
     };
   
     const handleTeamChange = (e) => {
+
+
       const team = e.target.value;
       setErrors((prev) => ({ ...prev, team: '', members: '' }));
       setFormData((prev) => ({ ...prev, team, members: [] }));
@@ -241,9 +254,10 @@ export default function Topbar({ onMenuClick }) {
                 }
               >
                 {availableMembers.map((member) => (
-                  <option key={member} value={member}>
-                    {member}
-                  </option>
+                  <option key={member.name} value={member._id}>
+                  {member.name}
+                </option>
+                
                 ))}
               </select>
 
@@ -251,18 +265,15 @@ export default function Topbar({ onMenuClick }) {
                 <p className="text-red-500 text-xs mt-1">{errors.members}</p>
               )}
 
-              {formData.members.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {formData.members.map((m) => (
-                    <span
-                      key={m}
-                      className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full"
-                    >
-                      {m}
-                    </span>
-                  ))}
-                </div>
-              )}
+              {formData.members.map((mId) => {
+                const user = availableMembers.find((mem) => mem._id === mId);
+                return (
+                  <span key={mId} className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                    {user?.name || mId}
+                  </span>
+                );
+              })}
+
             </div>
 
 

@@ -9,7 +9,7 @@ const UserSchema = new mongoose.Schema({
   lastName: { type: String },
   bio: { type: String, maxlength: 500 },
   phone: { type: String },
-  department: { type: String },
+  team: { type: String },
   position: { type: String },
   location: { type: String },
   profileImage: { type: String }, // optional if you're storing an image URL

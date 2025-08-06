@@ -19,7 +19,7 @@ export default function ProfilePage() {
     lastName: '',
     email: '',
     phone: '',
-    department: '',
+    team: '',
     position: '',
     joinDate: '',
     bio: '',
@@ -101,7 +101,7 @@ export default function ProfilePage() {
     form.append('lastName', formData.lastName);
     form.append('bio', formData.bio);
     form.append('phone', formData.phone);
-    form.append('department', formData.department);
+    form.append('team', formData.team);
     form.append('position', formData.position);
     form.append('location', formData.location);
 
@@ -116,6 +116,7 @@ export default function ProfilePage() {
       });
 
       const result = await res.json();
+      
       
       if (result.success && result.user) {
         console.log('Profile updated:', result.user);
@@ -252,7 +253,7 @@ export default function ProfilePage() {
                   <div className="flex items-center space-x-4 text-sm text-gray-500">
                     <div className="flex items-center">
                       <i className="ri-building-line mr-1"></i>
-                      {formData.department}
+                      {formData.team}
                     </div>
                     <div className="flex items-center">
                       <i className="ri-map-pin-line mr-1"></i>
@@ -387,22 +388,23 @@ export default function ProfilePage() {
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Team</label>
                   {isEditing ? (
                     <select
-                      name="department"
-                      value={formData.department}
+                      name="team"
+                      value={formData.team}
                       onChange={handleChange}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 pr-8"
                     >
-                      <option value="Engineering">Engineering</option>
-                      <option value="Design">Design</option>
-                      <option value="Marketing">Marketing</option>
-                      <option value="Sales">Sales</option>
-                      <option value="HR">HR</option>
+                      <option value="">Select a team</option>
+                        <option value="frontend">Frontend Team</option>
+                        <option value="design">Design Team</option>
+                        <option value="backend">Backend Team</option>
+                        <option value="sales">Sales</option>
+                        <option value="hr">HR</option>
                     </select>
                   ) : (
-                    <p className="text-gray-900 py-2">{formData.department}</p>
+                    <p className="text-gray-900 py-2">{formData.team}</p>
                   )}
                 </div>
                 <div>

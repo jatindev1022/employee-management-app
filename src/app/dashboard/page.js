@@ -7,78 +7,225 @@ import TaskChart from '@/components/dashboard/TaskChart';
 import RecentTasks from '@/components/dashboard/RecentTasks';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { set } from 'date-fns';
+import { Toaster, toast } from 'react-hot-toast';
+
 
 function QuickAddTaskModal({ isOpen, onClose }) {
-  const [formData, setFormData] = useState({
+  const initialState = {
+    project: '',
     title: '',
     description: '',
-    assignee: '',
+    assignee: [],
     priority: 'medium',
     dueDate: ''
-  });
-  
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log('Creating task:', formData);
-    // Task creation logic here
-    onClose();
-    setFormData({
-      title: '',
-      description: '',
-      assignee: '',
-      priority: 'medium',
-      dueDate: ''
-    });
   };
-  
+
+  const [formData, setFormData] = useState(initialState);
+  const [errors, setErrors] = useState({});
+  const [projectList, setProjectList] = useState([]);
+  const [projectMembers, setProjectMembers] = useState([]);
+
+  // 🧼 Reset form when modal is closed
+  useEffect(() => {
+    if (!isOpen) {
+      setFormData(initialState);
+      setErrors({});
+      setProjectMembers([]);
+    }
+  }, [isOpen]);
+
+  // 🧠 Fetch all projects
+  useEffect(() => {
+    const fetchProject = async () => {
+      try {
+        const res = await fetch('/api/project');
+        const data = await res.json();
+        if (res.ok) setProjectList(data);
+      } catch (error) {
+        console.error('Error fetching projects:', error);
+      }
+    };
+    fetchProject();
+  }, []);
+
+  // 🧠 Handle project change and fetch members
+  const handleProjectChange = async (e) => {
+    const selectedProjectId = e.target.value;
+    setFormData(prev => ({ ...prev, project: selectedProjectId, assignee: [] }));
+    
+    // Clear project error when user selects a project
+    if (errors.project) {
+      setErrors(prev => ({ ...prev, project: '' }));
+    }
+
+    const selectedProject = projectList.find(p => p._id === selectedProjectId);
+    if (!selectedProject) {
+      setProjectMembers([]);
+      return;
+    }
+
+    try {
+      const query = selectedProject.members.map(id => `_id=${id}`).join('&');
+      const res = await fetch(`/api/users?${query}`);
+      const users = await res.json();
+      setProjectMembers(Array.isArray(users) ? users : []);
+    } catch (err) {
+      console.error('Failed to fetch members:', err);
+      setProjectMembers([]);
+    }
+  };
+
+  // 📥 Handle input field changes
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Clear specific field error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  // ✅ Validate form before submit
+  const validateForm = () => {
+    const newErrors = {};
+    if (!formData.project) newErrors.project = 'Project is required';
+    if (!formData.title) newErrors.title = 'Title is required';
+    if (!formData.description || formData.description.length < 10)
+      newErrors.description = 'Description must be at least 10 characters';
+    if (formData.assignee.length === 0) newErrors.assignee = 'Select at least one assignee';
+    if (!formData.dueDate) newErrors.dueDate = 'Due date is required';
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // 🚀 Submit task
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+
+    try {
+      const res = await fetch('/api/task', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        console.log('Task created:', data.task);
+        setFormData(initialState); // ✅ Reset on success
+        setErrors({});
+        onClose(); // ✅ Close modal
+        toast.success('Task added successfully!');
+
+      } else {
+        toast.error(data.message || 'Failed to add task');
+        console.error('Create failed:', data.error);
+      }
+    } catch (error) {
+      toast.error(data.message || 'Error submitting task');
+      console.error('Error submitting task:', error);
+    }
+  };
+
+  // Handle assignee selection change
+  const handleAssigneeChange = (e) => {
+    const selected = Array.from(e.target.selectedOptions, opt => opt.value);
+    setFormData(prev => ({ ...prev, assignee: selected }));
+    
+    // Clear assignee error when user selects someone
+    if (errors.assignee && selected.length > 0) {
+      setErrors(prev => ({ ...prev, assignee: '' }));
+    }
+  };
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Create New Task" size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
+
+        {/* 🟦 Project */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Project</label>
+          <select
+            value={formData.project}
+            onChange={handleProjectChange}
+            className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none ${
+              errors.project ? 'border-red-500 ring-red-300' : 'border-gray-300 focus:ring-blue-500'
+            }`}
+          >
+            <option value="">Select Project</option>
+            {projectList.map(p => (
+              <option key={p._id} value={p._id}>{p.name}</option>
+            ))}
+          </select>
+          {errors.project && <p className="text-red-500 text-sm mt-1">{errors.project}</p>}
+        </div>
+
+        {/* 🟦 Title */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Task Title</label>
           <input
             type="text"
+            name="title"
             value={formData.title}
-            onChange={(e) => setFormData({...formData, title: e.target.value})}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onChange={handleInputChange}
+            className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none ${
+              errors.title ? 'border-red-500 ring-red-300' : 'border-gray-300 focus:ring-blue-500'
+            }`}
             placeholder="Enter task title..."
-            required
           />
+          {errors.title && <p className="text-red-500 text-sm mt-1">{errors.title}</p>}
         </div>
+
+        {/* 🟦 Description */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
           <textarea
+            name="description"
             value={formData.description}
-            onChange={(e) => setFormData({...formData, description: e.target.value})}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            onChange={handleInputChange}
+            className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm resize-none ${
+              errors.description ? 'border-red-500 ring-red-300' : 'border-gray-300 focus:ring-blue-500'
+            }`}
             rows={3}
-            maxLength={500}
-            placeholder="Describe the task..."
+            placeholder="Minimum 10 characters"
           />
+          {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description}</p>}
         </div>
+
+        {/* 🟦 Assignee + Priority */}
         <div className="grid grid-cols-2 gap-4">
+          {/* Assignee */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Assignee</label>
             <select
+              multiple
               value={formData.assignee}
-              onChange={(e) => setFormData({...formData, assignee: e.target.value})}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 pr-8"
-              required
+              onChange={handleAssigneeChange}
+              className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none ${
+                errors.assignee ? 'border-red-500 ring-red-300' : 'border-gray-300 focus:ring-blue-500'
+              }`}
             >
-              <option value="">Select assignee</option>
-              <option value="John Doe">John Doe</option>
-              <option value="Jane Smith">Jane Smith</option>
-              <option value="Mike Johnson">Mike Johnson</option>
-              <option value="Sarah Wilson">Sarah Wilson</option>
+              {projectMembers.map(m => (
+                <option key={m._id} value={m._id}>
+                  {m.firstName ? `${m.firstName} ${m.lastName}` : m.email}
+                </option>
+              ))}
             </select>
+            {errors.assignee && <p className="text-red-500 text-sm mt-1">{errors.assignee}</p>}
           </div>
+
+          {/* Priority */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
             <select
               value={formData.priority}
-              onChange={(e) => setFormData({...formData, priority: e.target.value})}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 pr-8"
+              onChange={(e) => setFormData(prev => ({ ...prev, priority: e.target.value }))}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="low">Low</option>
               <option value="medium">Medium</option>
@@ -86,23 +233,43 @@ function QuickAddTaskModal({ isOpen, onClose }) {
             </select>
           </div>
         </div>
+
+        {/* 🟦 Due Date */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Due Date</label>
           <input
             type="date"
+            name="dueDate"
             value={formData.dueDate}
-            onChange={(e) => setFormData({...formData, dueDate: e.target.value})}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onChange={handleInputChange}
+            className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none ${
+              errors.dueDate ? 'border-red-500 ring-red-300' : 'border-gray-300 focus:ring-blue-500'
+            }`}
           />
+          {errors.dueDate && <p className="text-red-500 text-sm mt-1">{errors.dueDate}</p>}
         </div>
+
+        {/* 🟦 Buttons */}
         <div className="flex justify-end space-x-3 pt-4">
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              onClose();
+              setFormData(initialState);
+              setErrors({});
+            }}
+          >
+            Cancel
+          </Button>
           <Button type="submit">Create Task</Button>
         </div>
       </form>
     </Modal>
   );
 }
+
+
+
 
 function AddMemberModal({ isOpen, onClose }) {
   const [formData, setFormData] = useState({
@@ -324,6 +491,7 @@ export default function Home() {
 
   return (
     <Layout>
+        <Toaster position="top-right" reverseOrder={false} />
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
         <p>Welcome back!</p>

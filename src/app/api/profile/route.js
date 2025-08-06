@@ -63,7 +63,7 @@ export async function POST(req) {
     }
 
     const update = {};
-    const fields = ['firstName', 'lastName', 'email', 'phone', 'bio', 'department', 'position', 'location'];
+    const fields = ['firstName', 'lastName', 'email', 'phone', 'bio', 'team', 'position', 'location'];
     fields.forEach(field => {
       const value = formData.get(field);
       if (value !== null && value !== '') {
