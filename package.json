@@ -9,6 +9,10 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@fullcalendar/daygrid": "^6.1.18",
+    "@fullcalendar/interaction": "^6.1.18",
+    "@fullcalendar/react": "^6.1.18",
+    "@fullcalendar/timegrid": "^6.1.18",
     "@reduxjs/toolkit": "^2.8.2",
     "bcryptjs": "^3.0.2",
     "cloudinary": "^2.7.0",
