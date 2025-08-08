@@ -230,7 +230,7 @@ export default function LoginForm() {
           {/* Footer */}
           <div className="text-center mt-6">
             <p className="text-gray-600">
-              Don't have an account?{' '}
+            <p>Don&apos;t have an account?</p>
               <Link 
                 href="/register" 
                 className="font-semibold text-indigo-600 hover:text-indigo-800 transition-colors duration-200 hover:underline"
