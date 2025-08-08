@@ -7,6 +7,8 @@ import { useRouter } from 'next/navigation';
 import Modal from '../ui/Modal';
 import Button from '@/components/ui/Button';
 import { Toaster, toast } from 'react-hot-toast';
+import { useDispatch } from 'react-redux';
+import { addProject } from '@/store/slices/projectSlice';
 
 
 export default function Topbar({ onMenuClick }) {
@@ -68,7 +70,7 @@ export default function Topbar({ onMenuClick }) {
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
     const [teamMembers ,setTeamMembers] =useState({});
-
+    const dispatch = useDispatch();
 
 
     useEffect(()=>{
@@ -140,10 +142,18 @@ export default function Topbar({ onMenuClick }) {
           body: JSON.stringify(formData),
         });
   
-        const data = await res.json();
-        console.log('📥 data received:', data);
-  
-        if (res.ok) {
+        const resData = await res.json();
+        console.log('📥 data received:', resData);
+        
+        // ✅ Destructure the actual project from resData
+        if (res.ok && resData.success) {
+          const newProject = {
+            ...resData.data,      // <- This is the actual project object
+            id: resData.data._id, // <- Optional if needed
+          };
+        
+          dispatch(addProject(newProject));
+          
           toast.success('New project added successfully!');
           setFormData({
             name: '',

@@ -114,6 +114,7 @@ export default function Sidebar({ isOpen, onClose }) {
     { href: '/dashboard', icon: 'ri-dashboard-fill', label: 'Dashboard', color: 'text-blue-600' },
     { href: '/profile', icon: 'ri-user-fill', label: 'Profile', color: 'text-green-600' },
     { href: '/calendar', icon: 'ri-calendar-fill', label: 'Calendar', color: 'text-purple-600' },
+    { href: '/project', icon: 'ri-folder-chart-fill', label: 'Project', color: 'text-yellow-600' },
     { href: '/tasks', icon: 'ri-task-fill', label: 'Tasks', color: 'text-orange-600' },
     { href: '/inbox', icon: 'ri-message-3-fill', label: 'Inbox', color: 'text-pink-600' },
     { href: '/search', icon: 'ri-search-fill', label: 'Search', color: 'text-indigo-600' },
@@ -137,13 +138,18 @@ export default function Sidebar({ isOpen, onClose }) {
         {/* Header */}
         <div className="flex items-center justify-between h-16 px-6 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 text-white shadow-lg">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center backdrop-blur-sm border border-white border-opacity-30">
-            <i className="ri-building-fill text-lg text-white w-5 h-5 flex items-center justify-center"></i>
+          
+          <div className="w-10 h-10 bg-white bg-opacity-30 rounded-xl flex items-center justify-center backdrop-blur-sm border border-white border-opacity-20 overflow-hidden">
+            <img
+              src="https://assets.zyrosite.com/cdn-cgi/image/format=auto,w=130,h=130,fit=crop/A1awWRzoxRUeVrW4/header_logo-icon-A85E1R09Z8F8OJ4p.png"
+              alt="Team"
+              className="w-full h-full object-contain"
+            />
+          </div>
 
-            </div>
             <div>
-              <span className="text-xl font-bold tracking-wide">EMS</span>
-              <p className="text-xs text-blue-100 -mt-1">Employee Management</p>
+              <span className="text-xl font-bold tracking-wide">Breep Sofbiz</span>
+              {/* <p className="text-xs text-blue-100 -mt-1">Employee Management</p> */}
             </div>
           </div>
           <button

@@ -8,8 +8,9 @@ import RecentTasks from '@/components/dashboard/RecentTasks';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 import { useEffect, useState } from 'react';
-import { set } from 'date-fns';
 import { Toaster, toast } from 'react-hot-toast';
+import { useSelector, useDispatch } from 'react-redux';
+import { setProjects } from '@/store/slices/projectSlice';
 
 
 function QuickAddTaskModal({ isOpen, onClose }) {
@@ -24,7 +25,11 @@ function QuickAddTaskModal({ isOpen, onClose }) {
 
   const [formData, setFormData] = useState(initialState);
   const [errors, setErrors] = useState({});
-  const [projectList, setProjectList] = useState([]);
+  // const [projectList, setProjectList] = useState([]);
+
+  const dispatch = useDispatch();
+  const projectList = useSelector(state => state.project.projects);
+
   const [projectMembers, setProjectMembers] = useState([]);
 
   // 🧼 Reset form when modal is closed
@@ -42,7 +47,8 @@ function QuickAddTaskModal({ isOpen, onClose }) {
       try {
         const res = await fetch('/api/project');
         const data = await res.json();
-        if (res.ok) setProjectList(data);
+        console.log(data);
+        if (res.ok) dispatch(setProjects(data));
       } catch (error) {
         console.error('Error fetching projects:', error);
       }
@@ -60,7 +66,8 @@ function QuickAddTaskModal({ isOpen, onClose }) {
       setErrors(prev => ({ ...prev, project: '' }));
     }
 
-    const selectedProject = projectList.find(p => p._id === selectedProjectId);
+    const selectedProject = projectList.find(p => String(p._id) === String(selectedProjectId));
+
     if (!selectedProject) {
       setProjectMembers([]);
       return;
@@ -157,10 +164,14 @@ function QuickAddTaskModal({ isOpen, onClose }) {
               errors.project ? 'border-red-500 ring-red-300' : 'border-gray-300 focus:ring-blue-500'
             }`}
           >
-            <option value="">Select Project</option>
-            {projectList.map(p => (
-              <option key={p._id} value={p._id}>{p.name}</option>
+        <option value="">Select a project</option>
+          {projectList.length > 0 &&
+            projectList.map((p) => (
+              <option key={p._id} value={p._id}>
+                {p.name}
+              </option>
             ))}
+
           </select>
           {errors.project && <p className="text-red-500 text-sm mt-1">{errors.project}</p>}
         </div>

@@ -1,42 +1,90 @@
 'use client';
 
-export default function Modal({ isOpen, onClose, title, children, size = 'md' }) {
+import { useEffect, useRef } from 'react';
+
+export default function Modal({
+  isOpen,
+  onClose,
+  title,
+  children,
+  size = 'md'
+}) {
+  const modalRef = useRef(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (modalRef.current && !modalRef.current.contains(event.target)) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
-  
-  const sizes = {
-    sm: 'max-w-md',
+
+  const sizeClasses = {
+    sm: 'max-w-sm',
     md: 'max-w-lg',
     lg: 'max-w-2xl',
     xl: 'max-w-4xl'
   };
-  
+
   return (
-<div className="fixed inset-0 z-50 overflow-y-auto">
-  <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-    
-    {/* Backdrop */}
-    <div 
-      className="fixed inset-0 bg-black/30 transition-opacity z-40"
-      onClick={onClose}
-    ></div>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto"
+      aria-labelledby="modal-title"
+      role="dialog"
+      aria-modal="true"
+    >
+      {/* Backdrop Overlay */}
+      <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose}></div>
 
-    {/* Modal Content */}
-    <div className={`inline-block w-full ${sizes[size]} p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl relative z-50`}>
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-medium leading-6 text-gray-900">{title}</h3>
-        <button
-          onClick={onClose}
-          className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
-        >
-          <i className="ri-close-line text-xl"></i>
-        </button>
+      {/* Modal Container */}
+      <div
+        className={`relative bg-white rounded-lg shadow-xl transform transition-all sm:my-8 sm:w-full ${sizeClasses[size]} p-6 mx-4 sm:mx-0`}
+        ref={modalRef}
+      >
+        {/* Modal Header */}
+        <div className="flex items-center justify-between pb-4 border-b border-gray-200">
+          <h3 className="text-xl font-semibold leading-6 text-gray-900" id="modal-title">
+            {title}
+          </h3>
+          <button
+            type="button"
+            className="text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 rounded-md"
+            onClick={onClose}
+          >
+            <span className="sr-only">Close modal</span>
+            <svg
+              className="h-6 w-6"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+
+        {/* Modal Body */}
+        <div className="mt-4 text-gray-700">
+          {children}
+        </div>
       </div>
-      {children}
     </div>
-    
-  </div>
-</div>
-
-
   );
 }
