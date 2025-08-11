@@ -354,6 +354,15 @@ export default function SearchPage() {
   };
   
   // Auto-search when filters change
+  // useEffect(() => {
+  //   if (searchTerm || filters.status.length > 0 || filters.priority.length > 0 || filters.assignee || filters.startDate || filters.endDate) {
+  //     const timer = setTimeout(() => {
+  //       handleSearch();
+  //     }, 500);
+  //     return () => clearTimeout(timer);
+  //   }
+  // }, [searchTerm, filters]);
+
   useEffect(() => {
     if (searchTerm || filters.status.length > 0 || filters.priority.length > 0 || filters.assignee || filters.startDate || filters.endDate) {
       const timer = setTimeout(() => {
@@ -361,7 +370,8 @@ export default function SearchPage() {
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [searchTerm, filters]);
+  }, [searchTerm, filters, handleSearch]);
+  
   
   return (
     <Layout>
