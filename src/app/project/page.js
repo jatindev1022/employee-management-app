@@ -574,7 +574,7 @@ useEffect(() => {
 }
 
 function ViewProjectModal({ isOpen, onClose, project }) {
-  if (!project) return null;
+
 
   const dispatch = useDispatch();
   const users = useSelector(state => state.user.users);
@@ -584,7 +584,8 @@ function ViewProjectModal({ isOpen, onClose, project }) {
       dispatch(fetchUsers());
     }
   }, [dispatch, users.length]);
-
+  
+  if (!project) return null;
   const status = (() => {
     const now = new Date();
     const start = new Date(project.startDate);
