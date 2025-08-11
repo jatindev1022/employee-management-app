@@ -10,7 +10,7 @@ import Button from '@/components/ui/Button';
 import { useEffect, useState } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
 import { useSelector, useDispatch } from 'react-redux';
-import { setProjects } from '@/store/slices/projectSlice';
+import { fetchProjects, setProjects } from '@/store/slices/projectSlice';
 
 
 function QuickAddTaskModal({ isOpen, onClose }) {
@@ -42,19 +42,9 @@ function QuickAddTaskModal({ isOpen, onClose }) {
   }, [isOpen]);
 
   // 🧠 Fetch all projects
-  useEffect(() => {
-    const fetchProject = async () => {
-      try {
-        const res = await fetch('/api/project');
-        const data = await res.json();
-        console.log(data);
-        if (res.ok) dispatch(setProjects(data));
-      } catch (error) {
-        console.error('Error fetching projects:', error);
-      }
-    };
-    fetchProject();
-  }, []);
+  useEffect(()=>{
+    dispatch(fetchProjects());
+  },[dispatch]);
 
   // 🧠 Handle project change and fetch members
   const handleProjectChange = async (e) => {
