@@ -6,12 +6,35 @@ import Badge from '../../components/ui/Badge';
 import Modal from '../../components/ui/Modal';
 import { useState, useEffect } from 'react';
 
+import { useDispatch, useSelector } from "react-redux";
+import { deleteProject, fetchProjects } from "@/store/slices/projectSlice";
+import { fetchUsers } from '@/store/slices/userSlice';
+
+
 function ProjectTable({ projects, onEdit, onDelete, onView ,onManageMembers}) {
   const [actionDropdown, setActionDropdown] = useState(null);
+  const dispatch = useDispatch();
+  const users = useSelector(state => state.user.users);
+
+  // Helper to find user by _id and return full name
+    const getUserNameById = (id) => {
+      const user = users.find(u => u._id === id);
+      if (!user) return id; // fallback to showing id if no user found
+      return `${user.firstName} ${user.lastName}`.trim();
+    };
+
+
+
+  useEffect(() => {
+    if (users.length === 0) dispatch(fetchUsers());
+  }, [dispatch, users.length]);
+
+  console.log(users);
   
   const toggleDropdown = (projectId) => {
-    setActionDropdown(actionDropdown === projectId ? null : projectId);
+    setActionDropdown(prev => (prev === projectId ? null : projectId));
   };
+  
 
   const getPriorityColor = (priority) => {
     switch (priority) {
@@ -81,9 +104,13 @@ function ProjectTable({ projects, onEdit, onDelete, onView ,onManageMembers}) {
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {projects.map((project) => {
+
+            // if (project._id) console.warn(' project id:', project);
+
+
               const status = getStatusFromDates(project.startDate, project.endDate);
               return (
-                <tr key={project.id} className="hover:bg-gray-50 transition-colors">
+                <tr key={project._id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="relative">
@@ -125,15 +152,20 @@ function ProjectTable({ projects, onEdit, onDelete, onView ,onManageMembers}) {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="flex -space-x-2 mr-2">
-                        {project.members.slice(0, 3).map((member, index) => (
-                          <div 
-                            key={index}
-                            className="w-8 h-8 rounded-full bg-gray-300 border-2 border-white flex items-center justify-center text-xs font-medium text-gray-600"
-                            title={member}
-                          >
-                            {member.charAt(0).toUpperCase()}
-                          </div>
-                        ))}
+                  
+
+                      {project.members.slice(0, 3).map((memberId, index) => {
+                          const name = getUserNameById(memberId);
+                          return (
+                            <div
+                              key={index}
+                              className="w-8 h-8 rounded-full bg-gray-300 border-2 border-white flex items-center justify-center text-xs font-medium text-gray-600"
+                              title={name}
+                            >
+                              {name.charAt(0).toUpperCase()}
+                            </div>
+                          );
+                        })}
                       </div>
                       {project.members.length > 3 && (
                         <span className="text-xs text-gray-500">+{project.members.length - 3}</span>
@@ -162,14 +194,14 @@ function ProjectTable({ projects, onEdit, onDelete, onView ,onManageMembers}) {
                       {/* More Actions Dropdown */}
                       <div className="relative">
                         <button
-                          onClick={() => toggleDropdown(project.id)}
+                          onClick={() => toggleDropdown(project._id)}
                           className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
                           title="More Actions"
                         >
                           <i className="ri-more-line w-4 h-4 flex items-center justify-center"></i>
                         </button>
                         
-                        {actionDropdown === project.id && (
+                        {actionDropdown === project._id && (
                           <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 z-10 border">
                             <div className="py-1">
                               <button
@@ -502,6 +534,7 @@ useEffect(() => {
           ) : (
             <div className="space-y-2 max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-3">
               {members.map((member, index) => (
+    
                 <div key={index} className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-gray-100 hover:border-gray-200 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-sm font-semibold text-blue-600">
@@ -519,6 +552,10 @@ useEffect(() => {
                   </button>
                 </div>
               ))}
+
+
+
+                      
             </div>
           )}
         </div>
@@ -539,6 +576,15 @@ useEffect(() => {
 function ViewProjectModal({ isOpen, onClose, project }) {
   if (!project) return null;
 
+  const dispatch = useDispatch();
+  const users = useSelector(state => state.user.users);
+
+  useEffect(() => {
+    if (!users.length) {
+      dispatch(fetchUsers());
+    }
+  }, [dispatch, users.length]);
+
   const status = (() => {
     const now = new Date();
     const start = new Date(project.startDate);
@@ -548,6 +594,14 @@ function ViewProjectModal({ isOpen, onClose, project }) {
     if (now > end) return 'completed';
     return 'active';
   })();
+
+  const getUserNameById = (id) => {
+    const user = users.find(u => u._id === id);
+    if (!user) return id; // fallback to ID if not found
+    return `${user.firstName} ${user.lastName}`.trim();
+  };
+
+
   
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Project Details" size="lg">
@@ -598,14 +652,17 @@ function ViewProjectModal({ isOpen, onClose, project }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Team Members ({project.members.length})</label>
           <div className="flex flex-wrap gap-2">
-            {project.members.map((member, index) => (
-              <div key={index} className="flex items-center gap-2 bg-gray-100 rounded-full px-3 py-1 text-sm">
-                <div className="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center text-xs font-medium text-gray-600">
-                  {member.charAt(0).toUpperCase()}
+             {project.members.map((memberId, index) => {
+              const name = getUserNameById(memberId);
+              return (
+                <div key={index} className="flex items-center gap-2 bg-gray-100 rounded-full px-3 py-1 text-sm">
+                  <div className="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center text-xs font-medium text-gray-600">
+                    {name.charAt(0).toUpperCase()}
+                  </div>
+                  <span>{name}</span>
                 </div>
-                <span>{member}</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
         
@@ -626,58 +683,70 @@ export default function ProjectsPage() {
   const [priorityFilter, setPriorityFilter] = useState('');
   const [teamFilter, setTeamFilter] = useState('');
   
-  const [projects, setProjects] = useState([
-    {
-      id: 1,
-      name: 'E-commerce Platform',
-      description: 'Building a modern e-commerce platform with React and Node.js',
-      priority: 'high',
-      startDate: '2024-01-15',
-      endDate: '2024-06-30',
-      team: 'Frontend Team',
-      members: ['John Doe', 'Sarah Wilson', 'Mike Johnson']
-    },
-    {
-      id: 2,
-      name: 'Mobile App Redesign',
-      description: 'Complete redesign of the mobile application UI/UX',
-      priority: 'medium',
-      startDate: '2024-02-01',
-      endDate: '2024-04-15',
-      team: 'Design Team',
-      members: ['Emily Chen', 'David Kim']
-    },
-    {
-      id: 3,
-      name: 'API Integration',
-      description: 'Integration with third-party payment APIs',
-      priority: 'high',
-      startDate: '2024-01-10',
-      endDate: '2024-03-20',
-      team: 'Backend Team',
-      members: ['John Doe', 'Mike Johnson', 'Alex Brown', 'Lisa Zhang']
-    },
-    {
-      id: 4,
-      name: 'Marketing Campaign',
-      description: 'Launch digital marketing campaign for Q2',
-      priority: 'low',
-      startDate: '2024-03-01',
-      endDate: '2024-05-31',
-      team: 'Marketing Team',
-      members: ['Emily Chen', 'Robert Taylor']
-    },
-    {
-      id: 5,
-      name: 'Database Migration',
-      description: 'Migrate from MySQL to PostgreSQL',
-      priority: 'medium',
-      startDate: '2024-02-15',
-      endDate: '2024-04-01',
-      team: 'DevOps Team',
-      members: ['Mike Johnson', 'Alex Brown']
-    }
-  ]);
+  const dispatch = useDispatch();
+
+
+  // const [projects, setProjects] = useState([
+  //   {
+  //     id: 1,
+  //     name: 'E-commerce Platform',
+  //     description: 'Building a modern e-commerce platform with React and Node.js',
+  //     priority: 'high',
+  //     startDate: '2024-01-15',
+  //     endDate: '2024-06-30',
+  //     team: 'Frontend Team',
+  //     members: ['John Doe', 'Sarah Wilson', 'Mike Johnson']
+  //   },
+  //   {
+  //     id: 2,
+  //     name: 'Mobile App Redesign',
+  //     description: 'Complete redesign of the mobile application UI/UX',
+  //     priority: 'medium',
+  //     startDate: '2024-02-01',
+  //     endDate: '2024-04-15',
+  //     team: 'Design Team',
+  //     members: ['Emily Chen', 'David Kim']
+  //   },
+  //   {
+  //     id: 3,
+  //     name: 'API Integration',
+  //     description: 'Integration with third-party payment APIs',
+  //     priority: 'high',
+  //     startDate: '2024-01-10',
+  //     endDate: '2024-03-20',
+  //     team: 'Backend Team',
+  //     members: ['John Doe', 'Mike Johnson', 'Alex Brown', 'Lisa Zhang']
+  //   },
+  //   {
+  //     id: 4,
+  //     name: 'Marketing Campaign',
+  //     description: 'Launch digital marketing campaign for Q2',
+  //     priority: 'low',
+  //     startDate: '2024-03-01',
+  //     endDate: '2024-05-31',
+  //     team: 'Marketing Team',
+  //     members: ['Emily Chen', 'Robert Taylor']
+  //   },
+  //   {
+  //     id: 5,
+  //     name: 'Database Migration',
+  //     description: 'Migrate from MySQL to PostgreSQL',
+  //     priority: 'medium',
+  //     startDate: '2024-02-15',
+  //     endDate: '2024-04-01',
+  //     team: 'DevOps Team',
+  //     members: ['Mike Johnson', 'Alex Brown']
+  //   }
+  // ]);
+
+  const { projects, loading, error } = useSelector((state) => state.project);
+
+  useEffect(() => {
+    dispatch(fetchProjects());
+  }, [dispatch]);
+
+  // console.log("Projects in Redux:", projects);
+
   
   const filteredProjects = projects.filter(project => {
     const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -688,10 +757,8 @@ export default function ProjectsPage() {
     return matchesSearch && matchesPriority && matchesTeam;
   });
   
-  const handleAddProject = () => {
-    setSelectedProject(null);
-    setShowModal(true);
-  };
+
+
   
   const handleEditProject = (project) => {
     setSelectedProject(project);
@@ -710,27 +777,33 @@ export default function ProjectsPage() {
   
   const handleSaveProject = (formData) => {
     if (selectedProject) {
-      setProjects(projects.map(proj => 
-        proj.id === selectedProject.id ? { ...proj, ...formData } : proj
-      ));
-    } else {
-      const newProject = {
-        id: Date.now(),
+      // setProjects(projects.map(proj => 
+      //   proj.id === selectedProject.id ? { ...proj, ...formData } : proj
+      // ));
+
+     dispatch(updateProject({
+        id: selectedProject.id,
         ...formData
-      };
-      setProjects([...projects, newProject]);
+      }));  
+      } else {
+        dispatch(addProject({
+          id: Date.now(),
+          ...formData
+        }));
     }
   };
 
   const handleSaveMemberChanges = (updatedProject) => {
-    setProjects(projects.map(proj => 
-      proj.id === updatedProject.id ? updatedProject : proj
-    ));
+    // setProjects(projects.map(proj => 
+    //   proj.id === updatedProject.id ? updatedProject : proj
+    // ));
+    dispatch(updatedProject(updatedProject));
   };
   
   const handleDeleteProject = (project) => {
     if (confirm(`Are you sure you want to delete ${project.name}?`)) {
-      setProjects(projects.filter(proj => proj.id !== project.id));
+      // setProjects(projects.filter(proj => proj.id !== project.id));
+      dispatch(deleteProject(project.id));
     }
   };
   
@@ -739,16 +812,7 @@ export default function ProjectsPage() {
   return (
     <Layout>
       <div className="mb-8">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Project Management</h1>
-            <p className="text-gray-600 mt-1">Manage your projects and track their progress</p>
-          </div>
-          <Button onClick={handleAddProject}>
-            <i className="ri-add-line mr-2 w-4 h-4 flex items-center justify-center"></i>
-            Add Project
-          </Button>
-        </div>
+    
         
         {/* Search and Filter */}
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
