@@ -7,9 +7,9 @@ import { useRouter } from 'next/navigation';
 import Modal from '../ui/Modal';
 import Button from '@/components/ui/Button';
 import { Toaster, toast } from 'react-hot-toast';
-import { useDispatch } from 'react-redux';
 import { addProject } from '@/store/slices/projectSlice';
-
+import { useDispatch, useSelector } from "react-redux";
+import { fetchTeamMembers } from "@/store/slices/teamMemberSlice";
 
 export default function Topbar({ onMenuClick }) {
   const [showNotifications, setShowNotifications] = useState(false);
@@ -72,19 +72,18 @@ export default function Topbar({ onMenuClick }) {
     const [teamMembers ,setTeamMembers] =useState({});
     const dispatch = useDispatch();
 
+    const { membersByTeam, loading: membersLoading, error: membersError } =
+    useSelector((state) => state.team);
+  
+    
+  
 
-    useEffect(()=>{
-      const fetchTeamMembers= async()=>{
-        try {
-          const res = await fetch('/api/team-member');
-          const data = await res.json();
-          setTeamMembers(data); // example: { backend: [...], frontend: [...] }
-        } catch (err) {
-          console.error('Error fetching team members:', err);
-        }
-      };
-      fetchTeamMembers();
-    }, [isOpen]);
+  
+    useEffect(() => {
+      if (isOpen && Object.keys(membersByTeam).length === 0) {
+        dispatch(fetchTeamMembers());
+      }
+    }, [isOpen, dispatch, membersByTeam]);
 
   
     const validate = () => {
@@ -119,7 +118,7 @@ export default function Topbar({ onMenuClick }) {
       const team = e.target.value;
       setErrors((prev) => ({ ...prev, team: '', members: '' }));
       setFormData((prev) => ({ ...prev, team, members: [] }));
-      setAvailableMembers(teamMembers[team] || []);
+      setAvailableMembers(membersByTeam[team] || []);
     };
   
     const handleMemberChange = (e) => {
