@@ -9,7 +9,10 @@ import Button from '@/components/ui/Button';
 import { Toaster, toast } from 'react-hot-toast';
 import { addProject } from '@/store/slices/projectSlice';
 import { useDispatch, useSelector } from "react-redux";
+
 import { fetchTeamMembers } from "@/store/slices/teamMemberSlice";
+import Image from 'next/image';
+
 
 export default function Topbar({ onMenuClick }) {
   const [showNotifications, setShowNotifications] = useState(false);
@@ -450,11 +453,13 @@ export default function Topbar({ onMenuClick }) {
               onClick={() => setShowUserMenu(!showUserMenu)}
               className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 transition-colors"
             >
-              <img
-                src="https://readdy.ai/api/search-image?query=professional%20business%20person%20avatar%20headshot%20with%20friendly%20smile%2C%20clean%20background%2C%20corporate%20style%2C%20high%20quality%20portrait&width=40&height=40&seq=user-avatar&orientation=squarish"
-                alt="Profile"
-                className="w-8 h-8 rounded-full object-cover ring-2 ring-gray-200"
-              />
+          <Image
+            src="https://readdy.ai/api/search-image?query=professional%20business%20person%20avatar%20headshot%20with%20friendly%20smile%2C%20clean%20background%2C%20corporate%20style%2C%20high%20quality%20portrait&width=40&height=40&seq=user-avatar&orientation=squarish"
+            alt="Profile"
+            width={40}
+            height={40}
+            className="rounded-full object-cover ring-2 ring-gray-200"
+          />
               <span className="text-sm font-medium text-gray-700 hidden sm:block">John Doe</span>
               <i className="ri-arrow-down-s-line text-gray-400 w-4 h-4 flex items-center justify-center"></i>
             </button>
