@@ -5,11 +5,11 @@ import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import Modal from '../../components/ui/Modal';
 import { useState, useEffect } from 'react';
-
+import { Toaster, toast } from 'react-hot-toast';
 import { useDispatch, useSelector } from "react-redux";
-import { deleteProject, fetchProjects } from "@/store/slices/projectSlice";
+import { deleteProjectAsync, fetchProjects, saveProjectAsync } from "@/store/slices/projectSlice";
 import { fetchUsers } from '@/store/slices/userSlice';
-
+import { fetchTeamMembers } from "@/store/slices/teamMemberSlice";
 
 function ProjectTable({ projects, onEdit, onDelete, onView ,onManageMembers}) {
   const [actionDropdown, setActionDropdown] = useState(null);
@@ -29,7 +29,7 @@ function ProjectTable({ projects, onEdit, onDelete, onView ,onManageMembers}) {
     if (users.length === 0) dispatch(fetchUsers());
   }, [dispatch, users.length]);
 
-  console.log(users);
+  // console.log(users);
   
   const toggleDropdown = (projectId) => {
     setActionDropdown(prev => (prev === projectId ? null : projectId));
@@ -104,10 +104,6 @@ function ProjectTable({ projects, onEdit, onDelete, onView ,onManageMembers}) {
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {projects.map((project) => {
-
-            // if (project._id) console.warn(' project id:', project);
-
-
               const status = getStatusFromDates(project.startDate, project.endDate);
               return (
                 <tr key={project._id} className="hover:bg-gray-50 transition-colors">
@@ -234,7 +230,7 @@ function ProjectTable({ projects, onEdit, onDelete, onView ,onManageMembers}) {
                                 <i className="ri-task-line mr-3 w-4 h-4 flex items-center justify-center"></i>
                                 View Tasks
                               </button>
-                              <button
+                              {/* <button
                                 onClick={() => {
                                 onManageMembers(project);
                                   setActionDropdown(null);
@@ -243,7 +239,7 @@ function ProjectTable({ projects, onEdit, onDelete, onView ,onManageMembers}) {
                               >
                                 <i className="ri-user-add-line mr-3 w-4 h-4 flex items-center justify-center"></i>
                                 Manage Members
-                              </button>
+                              </button> */}
                               <div className="border-t border-gray-100 my-1"></div>
                               <button
                                 onClick={() => {
@@ -272,6 +268,15 @@ function ProjectTable({ projects, onEdit, onDelete, onView ,onManageMembers}) {
 }
 
 function ProjectModal({ isOpen, onClose, project, onSave }) {
+  const dispatch = useDispatch();
+  const users = useSelector(state => state.user.users);
+
+  const getUserNameById = (id) => {
+    const user = users.find(u => u._id === id);
+    if (!user) return id; // fallback to showing id if no user found
+    return `${user.firstName} ${user.lastName}`.trim();
+  };
+
   const [formData, setFormData] = useState({
     name: project?.name || '',
     description: project?.description || '',
@@ -281,17 +286,94 @@ function ProjectModal({ isOpen, onClose, project, onSave }) {
     team: project?.team || '',
     members: project?.members || []
   });
-  
+  const [errors, setErrors] = useState({})
   const [memberInput, setMemberInput] = useState('');
-  
+  const [availableMembers, setAvailableMembers] = useState([]);
+
+  const { membersByTeam, loading: membersLoading, error: membersError } = useSelector((state) => state.team);
+
+  useEffect(() => {
+    if (Object.keys(membersByTeam).length === 0) {
+      dispatch(fetchTeamMembers());
+    }
+  }, [dispatch, membersByTeam]);
+
+  // Load project data when editing
+  useEffect(() => {
+    if (project) {
+      setFormData({
+        _id: project._id, // keep _id so backend knows it's an update
+        name: project.name || "",
+        description: project.description || "",
+        priority: project.priority || "medium",
+        startDate: project.startDate
+          ? new Date(project.startDate).toISOString().split("T")[0]
+          : "",
+        endDate: project.endDate
+          ? new Date(project.endDate).toISOString().split("T")[0]
+          : "",
+        team: project.team || "",
+        members: [...new Set(project.members || [])],
+      });
+
+      if (project.team) {
+        setAvailableMembers(membersByTeam[project.team] || []);
+      }
+    } else {
+      // reset for new project
+      setFormData({
+        name: "",
+        description: "",
+        priority: "medium",
+        startDate: "",
+        endDate: "",
+        team: "",
+        members: [],
+      });
+      setErrors({});
+      setAvailableMembers([]);
+    }
+  }, [project, membersByTeam]);
+
+  // Validation function
+  const validate = () => {
+    const newErrors = {};
+    if (!formData.name.trim()) newErrors.name = 'Project name is required';
+    if (!formData.description.trim()) {
+      newErrors.description = 'Description is required';
+    } else if (formData.description.trim().length < 10) {
+      newErrors.description = 'Description must be at least 10 characters';
+    }
+    if (!formData.team) newErrors.team = 'Team selection is required';
+    if (formData.members.length === 0) newErrors.members = 'Please select at least one member';
+    if (!formData.startDate) newErrors.startDate = 'Start date is required';
+    if (!formData.endDate) newErrors.endDate = 'End date is required';
+    else if (formData.startDate && formData.endDate < formData.startDate) newErrors.endDate = 'End date cannot be before start date';
+    return newErrors;
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
+    const validationErrors = validate();
+    setErrors(validationErrors);
+    if (Object.keys(validationErrors).length > 0) return;
+
     onSave(formData);
+    toast.success(`Project ${project ? 'updated' : 'added'} successfully!`);
     onClose();
   };
-  
+
+  const handleTeamChange = (e) => {
+    const team = e.target.value;
+    setErrors((prev) => ({ ...prev, team: '', members: '' }));
+    setFormData((prev) => ({ ...prev, team, members: [] }));
+    setAvailableMembers(membersByTeam[team] || []);
+  };
+
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setErrors((prev) => ({ ...prev, [name]: '' }));
+    setFormData({ ...formData, [name]: value });
   };
 
   const addMember = () => {
@@ -310,7 +392,7 @@ function ProjectModal({ isOpen, onClose, project, onSave }) {
       members: formData.members.filter(member => member !== memberToRemove)
     });
   };
-  
+
   return (
     <Modal
       isOpen={isOpen}
@@ -327,23 +409,31 @@ function ProjectModal({ isOpen, onClose, project, onSave }) {
               name="name"
               value={formData.name}
               onChange={handleChange}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
+              className={`w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                errors.name ? 'border-red-500 ring-red-300' : 'border-gray-300'
+              }`}
             />
+            {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Team</label>
-            <input
-              type="text"
+            <select
               name="team"
               value={formData.team}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
+              onChange={handleTeamChange}
+              className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${
+                errors.team ? 'border-red-500 ring-red-300' : 'border-gray-300 focus:ring-blue-500'
+              }`}
+            >
+              <option value="">-- Choose a team --</option>
+              <option value="frontend">Frontend</option>
+              <option value="backend">Backend</option>
+              <option value="design">Design</option>
+            </select>
+            {errors.team && <p className="text-red-500 text-sm mt-1">{errors.team}</p>}
           </div>
         </div>
-        
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
           <textarea
@@ -351,10 +441,13 @@ function ProjectModal({ isOpen, onClose, project, onSave }) {
             value={formData.description}
             onChange={handleChange}
             rows={3}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={`w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              errors.description ? 'border-red-500 ring-red-300' : 'border-gray-300'
+            }`}
           />
+          {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description}</p>}
         </div>
-        
+
         <div className="grid grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
@@ -376,9 +469,11 @@ function ProjectModal({ isOpen, onClose, project, onSave }) {
               name="startDate"
               value={formData.startDate}
               onChange={handleChange}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
+              className={`w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                errors.startDate ? 'border-red-500 ring-red-300' : 'border-gray-300'
+              }`}
             />
+            {errors.startDate && <p className="text-red-500 text-sm mt-1">{errors.startDate}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
@@ -387,35 +482,56 @@ function ProjectModal({ isOpen, onClose, project, onSave }) {
               name="endDate"
               value={formData.endDate}
               onChange={handleChange}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
+              className={`w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                errors.endDate ? 'border-red-500 ring-red-300' : 'border-gray-300'
+              }`}
             />
+            {errors.endDate && <p className="text-red-500 text-sm mt-1">{errors.endDate}</p>}
           </div>
         </div>
-        
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Team Members</label>
           <div className="flex gap-2 mb-2">
-            <input
-              type="text"
-              value={memberInput}
-              onChange={(e) => setMemberInput(e.target.value)}
-              placeholder="Enter member name"
-              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <button
-              type="button"
-              onClick={addMember}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            <select
+              multiple
+              disabled={!formData.team}
+              value={formData.members}
+              onChange={(e) => {
+                const selected = Array.from(e.target.selectedOptions).map((opt) => opt.value);
+                setErrors((prev) => ({ ...prev, members: '' }));
+                setFormData({ ...formData, members: selected });
+
+                if (selected.length === 0) {
+                  setErrors((prev) => ({
+                    ...prev,
+                    members: 'Please select at least one member.',
+                  }));
+                }
+              }}
+              className={
+                'w-full h-36 px-4 py-3 border rounded-lg shadow-sm text-sm bg-white text-gray-700 ' +
+                'focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed ' +
+                (errors.members
+                  ? 'border-red-500 focus:ring-red-400'
+                  : 'border-gray-300 focus:ring-blue-500')
+              }
             >
-              Add
-            </button>
+              {availableMembers.map((member) => (
+                <option key={member.name} value={member._id}>
+                  {member.name}
+                </option>
+              ))}
+            </select>
           </div>
+          {errors.members && (
+            <p className="text-red-500 text-sm mt-1">{errors.members}</p>
+          )}
           {formData.members.length > 0 && (
             <div className="flex flex-wrap gap-2">
-              {formData.members.map((member, index) => (
-                <div key={index} className="flex items-center gap-1 bg-gray-100 rounded-full px-3 py-1 text-sm">
-                  <span>{member}</span>
+              {formData.members.map(member => (
+                <div key={member} className="flex items-center gap-1 bg-gray-100 rounded-full px-3 py-1 text-sm">
+                  <span>{getUserNameById(member)}</span>
                   <button
                     type="button"
                     onClick={() => removeMember(member)}
@@ -428,7 +544,7 @@ function ProjectModal({ isOpen, onClose, project, onSave }) {
             </div>
           )}
         </div>
-        
+
         <div className="flex justify-end space-x-3 pt-4">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button type="submit">{project ? 'Update' : 'Add'} Project</Button>
@@ -438,140 +554,141 @@ function ProjectModal({ isOpen, onClose, project, onSave }) {
   );
 }
 
-function ManageMembersModal({ isOpen, onClose, project, onSave }) {
-  const [members, setMembers] = useState([]);
-  const [memberInput, setMemberInput] = useState('');
+
+// function ManageMembersModal({ isOpen, onClose, project, onSave }) {
+//   const [members, setMembers] = useState([]);
+//   const [memberInput, setMemberInput] = useState('');
   
-//   Update members when project changes or modal opens
-useEffect(() => {
-    if (project && isOpen) {
-      setMembers(project.members || []);
-    }
-  }, [project, isOpen]);
-  
-  const addMember = () => {
-    if (memberInput.trim() && !members.includes(memberInput.trim())) {
-      setMembers([...members, memberInput.trim()]);
-      setMemberInput('');
-    }
-  };
+// //   Update members when project changes or modal opens
+//     useEffect(() => {
+//         if (project && isOpen) {
+//           setMembers(project.members || []);
+//         }
+//       }, [project, isOpen]);
+      
+//   const addMember = () => {
+//     if (memberInput.trim() && !members.includes(memberInput.trim())) {
+//       setMembers([...members, memberInput.trim()]);
+//       setMemberInput('');
+//     }
+//   };
 
-  const removeMember = (memberToRemove) => {
-    setMembers(members.filter(member => member !== memberToRemove));
-  };
+//   const removeMember = (memberToRemove) => {
+//     setMembers(members.filter(member => member !== memberToRemove));
+//   };
 
-  const handleSave = () => {
-    if (project) {
-      onSave({ ...project, members });
-    }
-    onClose();
-  };
+//   const handleSave = () => {
+//     if (project) {
+//       onSave({ ...project, members });
+//     }
+//     onClose();
+//   };
 
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      addMember();
-    }
-  };
+//   const handleKeyPress = (e) => {
+//     if (e.key === 'Enter') {
+//       e.preventDefault();
+//       addMember();
+//     }
+//   };
 
-  if (!project) return null;
+//   if (!project) return null;
 
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`Manage Members - ${project.name}`} size="md">
-      <div className="space-y-6">
-        {/* Project Info */}
-        <div className="bg-gray-50 rounded-lg p-4">
-          <div className="flex items-center gap-3">
-            <div className={`w-12 h-12 rounded-lg flex items-center justify-center text-white font-semibold ${
-              project.priority === 'high' ? 'bg-red-500' :
-              project.priority === 'medium' ? 'bg-yellow-500' : 'bg-green-500'
-            }`}>
-              {project.name.charAt(0).toUpperCase()}
-            </div>
-            <div>
-              <h3 className="font-semibold text-gray-900">{project.name}</h3>
-              <p className="text-sm text-gray-600">{project.team}</p>
-            </div>
-          </div>
-        </div>
+//   return (
+//     <Modal isOpen={isOpen} onClose={onClose} title={`Manage Members - ${project.name}`} size="md">
+//       <div className="space-y-6">
+//         {/* Project Info */}
+//         <div className="bg-gray-50 rounded-lg p-4">
+//           <div className="flex items-center gap-3">
+//             <div className={`w-12 h-12 rounded-lg flex items-center justify-center text-white font-semibold ${
+//               project.priority === 'high' ? 'bg-red-500' :
+//               project.priority === 'medium' ? 'bg-yellow-500' : 'bg-green-500'
+//             }`}>
+//               {project.name.charAt(0).toUpperCase()}
+//             </div>
+//             <div>
+//               <h3 className="font-semibold text-gray-900">{project.name}</h3>
+//               <p className="text-sm text-gray-600">{project.team}</p>
+//             </div>
+//           </div>
+//         </div>
 
-        {/* Add New Member */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Add New Member</label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={memberInput}
-              onChange={(e) => setMemberInput(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Enter member name"
-              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <button
-              type="button"
-              onClick={addMember}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
-            >
-              <i className="ri-add-line mr-1"></i>
-              Add
-            </button>
-          </div>
-        </div>
+//         {/* Add New Member */}
+//         <div>
+//           <label className="block text-sm font-medium text-gray-700 mb-2">Add New Member</label>
+//           <div className="flex gap-2">
+//             <input
+//               type="text"
+//               value={memberInput}
+//               onChange={(e) => setMemberInput(e.target.value)}
+//               onKeyPress={handleKeyPress}
+//               placeholder="Enter member name"
+//               className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+//             />
+//             <button
+//               type="button"
+//               onClick={addMember}
+//               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+//             >
+//               <i className="ri-add-line mr-1"></i>
+//               Add
+//             </button>
+//           </div>
+//         </div>
 
-        {/* Current Members */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <label className="block text-sm font-medium text-gray-700">Current Members</label>
-            <span className="text-sm text-gray-500">{members.length} members</span>
-          </div>
+//         {/* Current Members */}
+//         <div>
+//           <div className="flex items-center justify-between mb-3">
+//             <label className="block text-sm font-medium text-gray-700">Current Members</label>
+//             <span className="text-sm text-gray-500">{members.length} members</span>
+//           </div>
           
-          {members.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <i className="ri-user-line text-2xl mb-2 block"></i>
-              <p className="text-sm">No members assigned yet</p>
-              <p className="text-xs text-gray-400">Add members using the form above</p>
-            </div>
-          ) : (
-            <div className="space-y-2 max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-3">
-              {members.map((member, index) => (
-    
-                <div key={index} className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-gray-100 hover:border-gray-200 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-sm font-semibold text-blue-600">
-                      {member.charAt(0).toUpperCase()}
-                    </div>
-                    <span className="text-sm font-medium text-gray-900">{member}</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeMember(member)}
-                    className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
-                    title="Remove member"
-                  >
-                    <i className="ri-close-line text-sm"></i>
-                  </button>
-                </div>
-              ))}
+//           {members.length === 0 ? (
+//             <div className="text-center py-8 text-gray-500">
+//               <i className="ri-user-line text-2xl mb-2 block"></i>
+//               <p className="text-sm">No members assigned yet</p>
+//               <p className="text-xs text-gray-400">Add members using the form above</p>
+//             </div>
+//           ) : (
+//             <div className="space-y-2 max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-3">
+//               {members.map((member, index) => (
+//                   const name=
+//                 <div key={index} className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-gray-100 hover:border-gray-200 transition-colors">
+//                   <div className="flex items-center gap-3">
+//                     <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-sm font-semibold text-blue-600">
+//                       {member.charAt(0).toUpperCase()}
+//                     </div>
+//                     <span className="text-sm font-medium text-gray-900">{member}</span>
+//                   </div>
+//                   <button
+//                     type="button"
+//                     onClick={() => removeMember(member)}
+//                     className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+//                     title="Remove member"
+//                   >
+//                     <i className="ri-close-line text-sm"></i>
+//                   </button>
+//                 </div>
+//               ))}
 
 
 
                       
-            </div>
-          )}
-        </div>
+//             </div>
+//           )}
+//         </div>
 
-        {/* Actions */}
-        <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave}>
-            <i className="ri-save-line mr-2"></i>
-            Save Changes
-          </Button>
-        </div>
-      </div>
-    </Modal>
-  );
-}
+//         {/* Actions */}
+//         <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+//           <Button variant="outline" onClick={onClose}>Cancel</Button>
+//           <Button onClick={handleSave}>
+//             <i className="ri-save-line mr-2"></i>
+//             Save Changes
+//           </Button>
+//         </div>
+//       </div>
+//     </Modal>
+//   );
+// }
 
 function ViewProjectModal({ isOpen, onClose, project }) {
 
@@ -686,60 +803,6 @@ export default function ProjectsPage() {
   
   const dispatch = useDispatch();
 
-
-  // const [projects, setProjects] = useState([
-  //   {
-  //     id: 1,
-  //     name: 'E-commerce Platform',
-  //     description: 'Building a modern e-commerce platform with React and Node.js',
-  //     priority: 'high',
-  //     startDate: '2024-01-15',
-  //     endDate: '2024-06-30',
-  //     team: 'Frontend Team',
-  //     members: ['John Doe', 'Sarah Wilson', 'Mike Johnson']
-  //   },
-  //   {
-  //     id: 2,
-  //     name: 'Mobile App Redesign',
-  //     description: 'Complete redesign of the mobile application UI/UX',
-  //     priority: 'medium',
-  //     startDate: '2024-02-01',
-  //     endDate: '2024-04-15',
-  //     team: 'Design Team',
-  //     members: ['Emily Chen', 'David Kim']
-  //   },
-  //   {
-  //     id: 3,
-  //     name: 'API Integration',
-  //     description: 'Integration with third-party payment APIs',
-  //     priority: 'high',
-  //     startDate: '2024-01-10',
-  //     endDate: '2024-03-20',
-  //     team: 'Backend Team',
-  //     members: ['John Doe', 'Mike Johnson', 'Alex Brown', 'Lisa Zhang']
-  //   },
-  //   {
-  //     id: 4,
-  //     name: 'Marketing Campaign',
-  //     description: 'Launch digital marketing campaign for Q2',
-  //     priority: 'low',
-  //     startDate: '2024-03-01',
-  //     endDate: '2024-05-31',
-  //     team: 'Marketing Team',
-  //     members: ['Emily Chen', 'Robert Taylor']
-  //   },
-  //   {
-  //     id: 5,
-  //     name: 'Database Migration',
-  //     description: 'Migrate from MySQL to PostgreSQL',
-  //     priority: 'medium',
-  //     startDate: '2024-02-15',
-  //     endDate: '2024-04-01',
-  //     team: 'DevOps Team',
-  //     members: ['Mike Johnson', 'Alex Brown']
-  //   }
-  // ]);
-
   const { projects, loading, error } = useSelector((state) => state.project);
 
   useEffect(() => {
@@ -777,23 +840,12 @@ export default function ProjectsPage() {
   };
   
   const handleSaveProject = (formData) => {
-    if (selectedProject) {
-      // setProjects(projects.map(proj => 
-      //   proj.id === selectedProject.id ? { ...proj, ...formData } : proj
-      // ));
-
-     dispatch(updateProject({
-        id: selectedProject.id,
-        ...formData
-      }));  
-      } else {
-        dispatch(addProject({
-          id: Date.now(),
-          ...formData
-        }));
-    }
+    dispatch(saveProjectAsync({
+      _id: selectedProject?._id, // undefined for new project
+      ...formData
+    }));
   };
-
+  
   const handleSaveMemberChanges = (updatedProject) => {
     // setProjects(projects.map(proj => 
     //   proj.id === updatedProject.id ? updatedProject : proj
@@ -804,7 +856,8 @@ export default function ProjectsPage() {
   const handleDeleteProject = (project) => {
     if (confirm(`Are you sure you want to delete ${project.name}?`)) {
       // setProjects(projects.filter(proj => proj.id !== project.id));
-      dispatch(deleteProject(project.id));
+      dispatch(deleteProjectAsync(project._id));
+      toast.success(`Project ${project.name} successfully Deleted!`);
     }
   };
   
@@ -812,6 +865,7 @@ export default function ProjectsPage() {
   
   return (
     <Layout>
+       <Toaster position="top-right" reverseOrder={false} />
       <div className="mb-8">
     
         
@@ -873,12 +927,12 @@ export default function ProjectsPage() {
         project={selectedProject}
       />
 
-      <ManageMembersModal
+      {/* <ManageMembersModal
         isOpen={showManageMembersModal}
         onClose={() => setShowManageMembersModal(false)}
         project={selectedProject}
         onSave={handleSaveMemberChanges}
-      />
+      /> */}
     </Layout>
   );
 }

@@ -11,6 +11,7 @@ export async function POST(req){
         await connectToDB();
         const body = await req.json();
         const {
+            _id,
             name,
             description,
             priority,
@@ -49,23 +50,55 @@ export async function POST(req){
                 return NextResponse.json({ success: false, message: 'At least one team member must be selected' }, { status: 400 });
             }
 
-        const newProject =await Project.create({
-            name: name.trim(),
-            description: description.trim(),
-            priority,
-            startDate: new Date(startDate),
-            endDate: new Date(endDate),
-            team: team.trim(),
-            members
-        });
-        return NextResponse.json({ success: true, data: newProject }, { status: 201 });
+            let project;
+            if (_id) {
+              // 🔄 Update existing project
+              // console.log("POST /api/project hit!");
 
-    }
-    catch (error) {
-        console.error('[PROJECT_POST_ERROR]', error);
-        return NextResponse.json({ success: false, message: 'Something went wrong' }, { status: 500 });
-    }
-}
+              project = await Project.findByIdAndUpdate(
+                _id,
+                {
+                  name: name.trim(),
+                  description: description.trim(),
+                  priority,
+                  startDate: new Date(startDate),
+                  endDate: new Date(endDate),
+                  team: team.trim(),
+                  members
+                },
+                { new: true } // return updated doc
+               
+              );
+         
+
+              if (!project) {
+                return NextResponse.json(
+                  { success: false, message: 'Project not found' },
+                  { status: 404 }
+                );
+              }
+            } else {
+              // ➕ Create new project
+              project = await Project.create({
+                name: name.trim(),
+                description: description.trim(),
+                priority,
+                startDate: new Date(startDate),
+                endDate: new Date(endDate),
+                team: team.trim(),
+                members
+              });
+            }
+        
+            return NextResponse.json({ success: true, data: project }, { status: _id ? 200 : 201 });
+          } catch (error) {
+            console.error('[PROJECT_POST_ERROR]', error);
+            return NextResponse.json(
+              { success: false, message: 'Something went wrong' },
+              { status: 500 }
+            );
+          }
+        }
 
 export  async function GET() {
     try{
@@ -83,3 +116,27 @@ export  async function GET() {
     );
     }
 }
+
+
+export async function DELETE(req) {
+  try {
+    await connectToDB();
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('_id');
+    if (!id) {
+      return NextResponse.json({ success: false, message: 'Project ID is required' }, { status: 400 });
+    }
+
+    const deletedProject = await Project.findByIdAndDelete(id);
+
+    if (!deletedProject) {
+      return NextResponse.json({ success: false, message: 'Project not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, message: 'Project deleted successfully', data: deletedProject });
+  } catch (error) {
+    console.error('[PROJECT_DELETE_ERROR]', error);
+    return NextResponse.json({ success: false, message: 'Something went wrong' }, { status: 500 });
+  }
+}
+
