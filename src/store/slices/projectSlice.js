@@ -140,5 +140,5 @@ export const fetchProjects = createAsyncThunk(
   
   export const { addProject, setProjects, updateProject, deleteProject } = projectSlice.actions;
   export default projectSlice.reducer;
-  export { saveProjectAsync, deleteProjectAsync };
+
   
