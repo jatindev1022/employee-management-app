@@ -69,6 +69,7 @@ export const fetchProjects = createAsyncThunk(
     name: "project",
     initialState: {
       projects: [],
+      currentProject: null,
       loading: false,
       error: null,
     },
@@ -87,7 +88,15 @@ export const fetchProjects = createAsyncThunk(
       },
       deleteProject: (state, action) => {
         state.projects = state.projects.filter(p => p._id !== action.payload);
+      },
+
+      setCurrentProject: (state, action) => {
+        state.currentProject = action.payload;
+      },
+      clearCurrentProject: (state) => { 
+        state.currentProject = null;
       }
+
     },
     extraReducers: (builder) => {
       builder
@@ -138,7 +147,8 @@ export const fetchProjects = createAsyncThunk(
     }
   });
   
-  export const { addProject, setProjects, updateProject, deleteProject } = projectSlice.actions;
+  export const { addProject, setProjects, updateProject,   setCurrentProject,
+    clearCurrentProject } = projectSlice.actions;
   export default projectSlice.reducer;
 
   
