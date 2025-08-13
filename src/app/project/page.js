@@ -10,10 +10,14 @@ import { useDispatch, useSelector } from "react-redux";
 import { deleteProjectAsync, fetchProjects, saveProjectAsync } from "@/store/slices/projectSlice";
 import { fetchUsers } from '@/store/slices/userSlice';
 import { fetchTeamMembers } from "@/store/slices/teamMemberSlice";
+import { setCurrentProject } from "@/store/slices/projectSlice";
+
+import { useRouter } from 'next/navigation';
 
 function ProjectTable({ projects, onEdit, onDelete, onView ,onManageMembers}) {
   const [actionDropdown, setActionDropdown] = useState(null);
   const dispatch = useDispatch();
+  const router = useRouter();
   const users = useSelector(state => state.user.users);
 
   // Helper to find user by _id and return full name
@@ -34,6 +38,12 @@ function ProjectTable({ projects, onEdit, onDelete, onView ,onManageMembers}) {
   const toggleDropdown = (projectId) => {
     setActionDropdown(prev => (prev === projectId ? null : projectId));
   };
+
+  function handleViewTasks(project){
+    dispatch(setCurrentProject(project)); // store project info in redux
+    const projectSlug = project.name.replace(/ /g, "_");
+    router.push(`/project/${projectSlug}/task?projectId=${project._id}`);
+  }
   
 
   const getPriorityColor = (priority) => {
@@ -221,10 +231,7 @@ function ProjectTable({ projects, onEdit, onDelete, onView ,onManageMembers}) {
                                 Edit Project
                               </button>
                               <button
-                                onClick={() => {
-                                  // View tasks action
-                                  setActionDropdown(null);
-                                }}
+                             onClick={() => handleViewTasks(project)}
                                 className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
                               >
                                 <i className="ri-task-line mr-3 w-4 h-4 flex items-center justify-center"></i>
