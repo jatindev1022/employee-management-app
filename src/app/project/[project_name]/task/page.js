@@ -5,17 +5,33 @@ import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
 import { useState } from 'react';
-import {  useEffect } from 'react';
+import {  useEffect,useRef } from 'react';
 import { useDispatch, useSelector } from "react-redux";
-import { fetchTasksByProject ,updateTaskStatus} from "@/store/slices/taskSlice";
+import { fetchTasksByProject ,updateTaskStatus ,addTask,deleteTask,updateTaskDetails,deleteTaskAsync} from "@/store/slices/taskSlice";
 import { useSearchParams } from "next/navigation";
 import { fetchUsers } from '@/store/slices/userSlice';
 import toast from 'react-hot-toast';
+import { fetchProjects, setProjects } from '@/store/slices/projectSlice';
 
-function TaskCard({ task, onDragStart, onDragEnd, isDragging }) {
+function TaskCard({ task, onDragStart, onDragEnd, isDragging ,onEdit}) {
   const dispatch = useDispatch();
   const users = useSelector((state) => state.user.users);
+  const [menuOpen, setMenuOpen] = useState(false);
 
+  const handleDelete = async () => {
+    try {
+      await dispatch(deleteTaskAsync(task._id)).unwrap();
+      toast.success("Task deleted!");
+      setMenuOpen(false);
+    } catch (err) {
+      toast.error(err?.message || "Failed to delete task");
+    }
+  };
+  
+  
+  
+
+  const menuRef = useRef(null);
   useEffect(() => {
     if (!users.length) dispatch(fetchUsers());
   }, [users.length, dispatch]);
@@ -52,11 +68,39 @@ function TaskCard({ task, onDragStart, onDragEnd, isDragging }) {
       className={`${getStatusColor(task.status)} border-2 rounded-xl p-4 mb-4 cursor-move hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1 ${isDragging ? "opacity-50 scale-95" : ""}`}
     >
       {/* Title and priority */}
-      <div className="flex items-start justify-between mb-3">
+      <div className="flex items-start justify-between mb-3 relative" ref={menuRef}>
         <h4 className="font-semibold text-gray-900 text-base">{task.title}</h4>
-        <Badge variant={getPriorityColor(task.priority)} size="sm">
-          {task.priority}
-        </Badge>
+        <div className="flex items-center space-x-2">
+          <Badge variant={getPriorityColor(task.priority)} size="sm">
+            {task.priority}
+          </Badge>
+          <button
+            onClick={() => setMenuOpen((prev) => !prev)}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <i className="ri-more-line text-sm"></i>
+          </button>
+
+          {menuOpen && (
+            <div className="absolute right-0 top-8 w-32 bg-white border rounded-lg shadow-lg z-50">
+              <button
+              onClick={() => {
+                setMenuOpen(false);
+                onEdit(task); // ✅ calls parent
+              }}
+                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+              >
+                Edit
+              </button>
+              <button
+                onClick={handleDelete}
+                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+              >
+                Delete
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Description */}
@@ -120,7 +164,7 @@ function TaskCard({ task, onDragStart, onDragEnd, isDragging }) {
 
   
 
-function TaskColumn({ title, tasks, status, onDrop, onDragOver, onDragEnter, onDragLeave, icon, color, isDraggedOver, onDragStart, onDragEnd, draggedTask }) {
+function TaskColumn({ title, tasks, status, onDrop, onDragOver, onDragEnter, onDragLeave, icon, color, isDraggedOver, onDragStart, onDragEnd, draggedTask,onEdit }) {
   const getColumnStyle = (status) => {
     switch (status) {
       case 'todo': return 'border-gray-300 bg-gray-50/50';
@@ -163,7 +207,7 @@ function TaskColumn({ title, tasks, status, onDrop, onDragOver, onDragEnter, onD
             onDragStart={onDragStart}
             onDragEnd={onDragEnd}
             isDragging={draggedTask && draggedTask._id === task._id}
-
+            onEdit={onEdit} // ✅ pass down
           />
         ))}
         {tasks.length === 0 && (
@@ -178,92 +222,269 @@ function TaskColumn({ title, tasks, status, onDrop, onDragOver, onDragEnter, onD
   );
 }
 
-function AddTaskModal({ isOpen, onClose, onSave }) {
-  const [formData, setFormData] = useState({
+function QuickAddModal({ isOpen, onClose ,taskToEdit ,currentProjectId}) {
+  const initialState = {
+    project: currentProjectId || '', 
     title: '',
     description: '',
-    assignee: '',
+    assignee: [],
     priority: 'medium',
     dueDate: ''
-  });
+  };
+
+  const [formData, setFormData] = useState(initialState);
+  const [errors, setErrors] = useState({});
+  const [pendingAssignees, setPendingAssignees] = useState([]);
+  // const [projectList, setProjectList] = useState([]);
+
+  const dispatch = useDispatch();
+  const projectList = useSelector(state => state.project.projects);
+
+  const [projectMembers, setProjectMembers] = useState([]);
+
+  // 🧼 Reset form when modal is closed
+  useEffect(() => {
+    if (!isOpen) return;
   
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!formData.title || !formData.assignee) return;
+    if (taskToEdit) {
+      // set basic form data except assignees
+      setFormData({
+        project: taskToEdit.project || '',
+        title: taskToEdit.title || '',
+        description: taskToEdit.description || '',
+        assignee: [], // clear here; will set after members load
+        priority: taskToEdit.priority || 'medium',
+        dueDate: taskToEdit.dueDate ? taskToEdit.dueDate.slice(0, 10) : ''
+      });
+  
+      if (taskToEdit.project) {
+        // fetch members and then set assignees
+        handleProjectChange({ target: { value: taskToEdit.project } }, true);
+      }
+  
+    } else if (currentProjectId) {
+      // new task on project page
+      setFormData(prev => ({ ...initialState, project: currentProjectId }));
+      handleProjectChange({ target: { value: currentProjectId } });
+    } else {
+      setFormData(initialState);
+    }
+  
+    setErrors({});
+  }, [isOpen, taskToEdit, currentProjectId]);
+  
+  
+  
+
+  // 🧠 Fetch all projects
+  useEffect(()=>{
+    dispatch(fetchProjects());
+  },[dispatch]);
+
+  // 🧠 Handle project change and fetch members
+  const handleProjectChange = async (e, keepAssignee = false) => {
+    const selectedProjectId = e.target.value;
+  
+    // temporarily clear assignees if not keeping
+    setFormData(prev => ({ ...prev, project: selectedProjectId, assignee: keepAssignee ? prev.assignee : [] }));
+  
+    // Clear project error
+    if (errors.project) setErrors(prev => ({ ...prev, project: '' }));
+  
+    const selectedProject = projectList.find(p => String(p._id) === String(selectedProjectId));
+    if (!selectedProject) {
+      setProjectMembers([]);
+      return;
+    }
+  
+    try {
+      const query = selectedProject.members.map(id => `_id=${id}`).join('&');
+      const res = await fetch(`/api/users?${query}`);
+      const users = await res.json();
+      const members = Array.isArray(users) ? users : [];
+      setProjectMembers(members);
+  
+      // ✅ If keeping assignees, only keep those that exist in members
+      if (keepAssignee && taskToEdit) {
+        const validAssignees = taskToEdit.assignee.filter(id => members.some(m => String(m._id) === String(id)));
+        setFormData(prev => ({ ...prev, assignee: validAssignees }));
+      }
+  
+    } catch (err) {
+      console.error('Failed to fetch members:', err);
+      setProjectMembers([]);
+    }
+  };
+  
+  // 📥 Handle input field changes
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
     
-    const newTask = {
-      id: Date.now(),
-      ...formData,
-      status: 'todo',
-      assigneeAvatar: 'https://readdy.ai/api/search-image?query=professional%20business%20person%20avatar%20headshot%20with%20friendly%20smile%2C%20clean%20background%2C%20corporate%20style%2C%20high%20quality%20portrait&width=40&height=40&seq=new-task-avatar&orientation=squarish'
-    };
-    onSave(newTask);
-    onClose();
-    setFormData({
-      title: '',
-      description: '',
-      assignee: '',
-      priority: 'medium',
-      dueDate: ''
-    });
+    // Clear specific field error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  // ✅ Validate form before submit
+  const validateForm = () => {
+    const newErrors = {};
+    if (!formData.project) newErrors.project = 'Project is required';
+    if (!formData.title) newErrors.title = 'Title is required';
+    if (!formData.description || formData.description.length < 10)
+      newErrors.description = 'Description must be at least 10 characters';
+    if (formData.assignee.length === 0) newErrors.assignee = 'Select at least one assignee';
+    if (!formData.dueDate) newErrors.dueDate = 'Due date is required';
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // 🚀 Submit task
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+  
+    try {
+      const payload = taskToEdit
+        ? { _id: taskToEdit._id, ...formData, status: taskToEdit.status } // edit
+        : formData; // create
+  
+      const res = await fetch("/api/task", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+  
+      const data = await res.json();
+  
+      if (!res.ok || !data.success) {
+        toast.error(data.error || (taskToEdit ? "Update failed" : "Failed to add task"));
+        return;
+      }
+  
+      if (taskToEdit) {
+        // Update the task in Redux state
+        dispatch(updateTaskDetails(data.task));
+        
+      } else {
+        // Add new task to Redux state
+        dispatch(addTask(data.task));
+      }
+  
+      toast.success(taskToEdit ? "Task updated!" : "Task created!");
+      onClose();
+      setFormData(initialState);
+  
+    } catch (error) {
+      toast.error(error.message || "Error submitting task");
+    }
   };
   
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
   
+
+
+  // Handle assignee selection change
+  const handleAssigneeChange = (e) => {
+    const selected = Array.from(e.target.selectedOptions, opt => opt.value);
+    setFormData(prev => ({ ...prev, assignee: selected }));
+    
+    // Clear assignee error when user selects someone
+    if (errors.assignee && selected.length > 0) {
+      setErrors(prev => ({ ...prev, assignee: '' }));
+    }
+  };
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Create New Task" size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
+
+        {/* 🟦 Project */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Project</label>
+          <select
+            value={formData.project}
+            onChange={handleProjectChange}
+            disabled={!!currentProjectId} // ❌ disable if project is pre-selected
+            className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none ${
+              errors.project ? 'border-red-500 ring-red-300' : 'border-gray-300 focus:ring-blue-500'
+            }`}
+          >
+            {!currentProjectId && <option value="">Select a project</option>}
+            {projectList
+              .filter(p => !currentProjectId || p._id === currentProjectId) // show only current project
+              .map(p => (
+                <option key={p._id} value={p._id}>
+                  {p.name}
+                </option>
+              ))}
+          </select>
+
+          {errors.project && <p className="text-red-500 text-sm mt-1">{errors.project}</p>}
+        </div>
+
+        {/* 🟦 Title */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Task Title</label>
           <input
             type="text"
             name="title"
             value={formData.title}
-            onChange={handleChange}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onChange={handleInputChange}
+            className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none ${
+              errors.title ? 'border-red-500 ring-red-300' : 'border-gray-300 focus:ring-blue-500'
+            }`}
             placeholder="Enter task title..."
-            required
           />
+          {errors.title && <p className="text-red-500 text-sm mt-1">{errors.title}</p>}
         </div>
+
+        {/* 🟦 Description */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
           <textarea
             name="description"
             value={formData.description}
-            onChange={handleChange}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            onChange={handleInputChange}
+            className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm resize-none ${
+              errors.description ? 'border-red-500 ring-red-300' : 'border-gray-300 focus:ring-blue-500'
+            }`}
             rows={3}
-            maxLength={500}
-            placeholder="Describe the task..."
+            placeholder="Minimum 10 characters"
           />
-          <p className="text-sm text-gray-500 mt-1">{formData.description.length}/500 characters</p>
+          {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description}</p>}
         </div>
+
+        {/* 🟦 Assignee + Priority */}
         <div className="grid grid-cols-2 gap-4">
+          {/* Assignee */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Assignee</label>
             <select
-              name="assignee"
+              multiple
               value={formData.assignee}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 pr-8"
-              required
+              onChange={handleAssigneeChange}
+              className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none ${
+                errors.assignee ? 'border-red-500 ring-red-300' : 'border-gray-300 focus:ring-blue-500'
+              }`}
             >
-              <option value="">Select assignee</option>
-              <option value="John Doe">John Doe</option>
-              <option value="Jane Smith">Jane Smith</option>
-              <option value="Mike Johnson">Mike Johnson</option>
-              <option value="Sarah Wilson">Sarah Wilson</option>
+              {projectMembers.map(m => (
+                <option key={m._id} value={m._id}>
+                  {m.firstName ? `${m.firstName} ${m.lastName}` : m.email}
+                </option>
+              ))}
             </select>
+            {errors.assignee && <p className="text-red-500 text-sm mt-1">{errors.assignee}</p>}
           </div>
+
+          {/* Priority */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
             <select
-              name="priority"
               value={formData.priority}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 pr-8"
+              onChange={(e) => setFormData(prev => ({ ...prev, priority: e.target.value }))}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="low">Low</option>
               <option value="medium">Medium</option>
@@ -271,19 +492,38 @@ function AddTaskModal({ isOpen, onClose, onSave }) {
             </select>
           </div>
         </div>
+
+        {/* 🟦 Due Date */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Due Date</label>
           <input
             type="date"
             name="dueDate"
             value={formData.dueDate}
-            onChange={handleChange}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onChange={handleInputChange}
+            className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none ${
+              errors.dueDate ? 'border-red-500 ring-red-300' : 'border-gray-300 focus:ring-blue-500'
+            }`}
           />
+          {errors.dueDate && <p className="text-red-500 text-sm mt-1">{errors.dueDate}</p>}
         </div>
+
+        {/* 🟦 Buttons */}
         <div className="flex justify-end space-x-3 pt-4">
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button type="submit">Create Task</Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              onClose();
+              setFormData(initialState);
+              setErrors({});
+            }}
+          >
+            Cancel
+          </Button>
+          <Button type="submit">
+          {taskToEdit ? "Update Task" : "Create Task"}
+        </Button>
+
         </div>
       </form>
     </Modal>
@@ -301,10 +541,14 @@ export default function TasksPage() {
 
 
     // Local state for drag/drop or temporary changes
-  const [tasks, setTasks] = useState([]);
+    const [tasks, setTasks] = useState([]);
+    const [taskToEdit, setTaskToEdit] = useState(null); // ✅ new state
 
 
-
+    const handleEditTask = (task) => {
+      setTaskToEdit(task);    // store selected task
+      setShowAddModal(true);  // open modal
+    };
 
     useEffect(() => {
       if (projectId) {
@@ -323,58 +567,6 @@ export default function TasksPage() {
 
   const [showAddModal, setShowAddModal] = useState(false);
 
-//   const [tasks, setTasks] = useState([
-//     {
-//       id: 1,
-//       title: 'Design new homepage',
-//       description: 'Create wireframes and mockups for the new homepage layout with improved user experience and modern design elements',
-//       assignee: 'Sarah Wilson',
-//       assigneeAvatar: 'https://readdy.ai/api/search-image?query=professional%20business%20woman%20avatar%20headshot%20with%20friendly%20smile%2C%20clean%20background%2C%20corporate%20style%2C%20high%20quality%20portrait&width=40&height=40&seq=avatar-sarah&orientation=squarish',
-//       priority: 'high',
-//       status: 'todo',
-//       dueDate: '2024-01-20'
-//     },
-//     {
-//       id: 2,
-//       title: 'Fix authentication bug',
-//       description: 'Resolve the issue with login redirects not working properly in production environment',
-//       assignee: 'Mike Johnson',
-//       assigneeAvatar: 'https://readdy.ai/api/search-image?query=professional%20business%20man%20avatar%20headshot%20with%20friendly%20smile%2C%20clean%20background%2C%20corporate%20style%2C%20high%20quality%20portrait&width=40&height=40&seq=avatar-mike&orientation=squarish',
-//       priority: 'high',
-//       status: 'inprogress',
-//       dueDate: '2024-01-16'
-//     },
-//     {
-//       id: 3,
-//       title: 'Update documentation',
-//       description: 'Add new API endpoints to the developer documentation and update existing examples',
-//       assignee: 'John Doe',
-//       assigneeAvatar: 'https://readdy.ai/api/search-image?query=professional%20business%20man%20avatar%20headshot%20with%20friendly%20smile%2C%20clean%20background%2C%20corporate%20style%2C%20high%20quality%20portrait%20developer&width=40&height=40&seq=avatar-john&orientation=squarish',
-//       priority: 'medium',
-//       status: 'completed',
-//       dueDate: '2024-01-15'
-//     },
-//     {
-//       id: 4,
-//       title: 'Implement dark mode',
-//       description: 'Add dark mode support across all pages and components with proper theme switching',
-//       assignee: 'Jane Smith',
-//       assigneeAvatar: 'https://readdy.ai/api/search-image?query=professional%20business%20woman%20avatar%20headshot%20with%20friendly%20smile%2C%20clean%20background%2C%20corporate%20style%2C%20high%20quality%20portrait%20jane&width=40&height=40&seq=avatar-jane&orientation=squarish',
-//       priority: 'low',
-//       status: 'todo',
-//       dueDate: '2024-01-30'
-//     },
-//     {
-//       id: 5,
-//       title: 'Setup CI/CD pipeline',
-//       description: 'Configure automated testing and deployment pipeline for the project',
-//       assignee: 'Mike Johnson',
-//       assigneeAvatar: 'https://readdy.ai/api/search-image?query=professional%20business%20man%20avatar%20headshot%20with%20friendly%20smile%2C%20clean%20background%2C%20corporate%20style%2C%20high%20quality%20portrait&width=40&height=40&seq=avatar-mike&orientation=squarish',
-//       priority: 'medium',
-//       status: 'onhold',
-//       dueDate: '2024-01-25'
-//     }
-//   ]);
   
   const [draggedTask, setDraggedTask] = useState(null);
   const [draggedOverColumn, setDraggedOverColumn] = useState(null);
@@ -507,6 +699,7 @@ const handleDrop = async (e, newStatus) => {
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
           draggedTask={draggedTask}
+          onEdit={handleEditTask}
         />
         <TaskColumn
           title="In Progress"
@@ -522,6 +715,7 @@ const handleDrop = async (e, newStatus) => {
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
           draggedTask={draggedTask}
+          onEdit={handleEditTask}
         />
         <TaskColumn
           title="On Hold"
@@ -537,6 +731,7 @@ const handleDrop = async (e, newStatus) => {
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
           draggedTask={draggedTask}
+          onEdit={handleEditTask}
         />
         <TaskColumn
           title="Completed"
@@ -552,13 +747,20 @@ const handleDrop = async (e, newStatus) => {
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
           draggedTask={draggedTask}
+          onEdit={handleEditTask}
         />
       </div>
       
-      <AddTaskModal
+      <QuickAddModal
         isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
+        onClose={() => {
+          setShowAddModal(false);
+          setTaskToEdit(null); // reset after close
+        }}
+        taskToEdit={taskToEdit} 
+        currentProjectId={projectId} 
         onSave={handleAddTask}
+
       />
     </Layout>
   );
