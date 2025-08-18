@@ -15,6 +15,7 @@ export  const fetchTasksByProject = createAsyncThunk(
     }
 );
 
+
 export const updateTaskStatus = createAsyncThunk(
   'tasks/updateStatus',
   async ({ taskId, status }, { rejectWithValue }) => {
@@ -22,7 +23,7 @@ export const updateTaskStatus = createAsyncThunk(
       const response = await fetch('/api/task', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: taskId, status }) // only send id + status
+        body: JSON.stringify({ _id: taskId, status }) // ✅ must match backend
       });
 
       const data = await response.json();
@@ -31,12 +32,51 @@ export const updateTaskStatus = createAsyncThunk(
         return rejectWithValue(data.error || `HTTP error ${response.status}`);
       }
 
-      return data.data; // updated task
+      return data.task; // ✅ matches backend
     } catch (err) {
       return rejectWithValue(err.message || 'Network error');
     }
   }
 );
+
+
+export const updateTaskDetails = createAsyncThunk(
+  "tasks/updateDetails",
+  async (task, { rejectWithValue }) => {
+    try {
+      const response = await fetch("/api/task", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(task), // full task object
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        return rejectWithValue(data.error || `HTTP error ${response.status}`);
+      }
+
+      return data.task;
+    } catch (err) {
+      return rejectWithValue(err.message || "Network error");
+    }
+  }
+);
+
+export const deleteTaskAsync = createAsyncThunk(
+  "tasks/deleteTask",
+  async (taskId, { rejectWithValue }) => {
+    try {
+      const res = await fetch(`/api/task?taskId=${taskId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to delete task");
+      return taskId;
+    } catch (err) {
+      return rejectWithValue(err.message);
+    }
+  }
+);
+
 
 
 
@@ -52,11 +92,11 @@ const taskSlice=createSlice({
 
     reducers:{
         addTask:(state,action)=>{
-            state.action.push (action.payload);
+            state.items.push (action.payload);
         },
         updateTask:(state,action)=>{
-            const index=state.items.findIndex(t=>t._id===payload._id);
-            if (index !== -1) state.items[index] = action.payload;
+          const index = state.items.findIndex(t => t._id === action.payload._id); // ✅ fixed
+          if (index !== -1) state.items[index] = action.payload;
         },
         deleteTask(state, action) {
             state.items = state.items.filter(t => t._id !== action.payload);
@@ -93,7 +133,22 @@ const taskSlice=createSlice({
         .addCase(updateTaskStatus.rejected, (state, action) => {
           state.updating = false;
           state.error = action.payload;
-        });
+        })
+      // Full edit
+        .addCase(updateTaskDetails.fulfilled, (state, action) => {
+          state.items = state.items.map(t =>
+            t._id === action.payload._id ? action.payload : t
+          );
+        })
+
+      // delete
+      .addCase(deleteTaskAsync.fulfilled, (state, action) => {
+        state.items = state.items.filter(task => task._id !== action.payload);
+      })
+      .addCase(deleteTaskAsync.rejected, (state, action) => {
+        state.error = action.payload;
+      });
+        
 
 
     }
