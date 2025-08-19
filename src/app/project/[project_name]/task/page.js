@@ -248,11 +248,14 @@ function QuickAddModal({ isOpen, onClose ,taskToEdit ,currentProjectId}) {
   
     if (taskToEdit) {
       // set basic form data except assignees
+      // console.log(taskToEdit);
       setFormData({
         project: taskToEdit.project || '',
         title: taskToEdit.title || '',
         description: taskToEdit.description || '',
-        assignee: [], // clear here; will set after members load
+        assignee: (taskToEdit.assignee || []).map(a =>
+          typeof a === "string" ? a : a._id
+        ),
         priority: taskToEdit.priority || 'medium',
         dueDate: taskToEdit.dueDate ? taskToEdit.dueDate.slice(0, 10) : ''
       });
@@ -284,37 +287,25 @@ function QuickAddModal({ isOpen, onClose ,taskToEdit ,currentProjectId}) {
   // 🧠 Handle project change and fetch members
   const handleProjectChange = async (e, keepAssignee = false) => {
     const selectedProjectId = e.target.value;
-  
-    // temporarily clear assignees if not keeping
-    setFormData(prev => ({ ...prev, project: selectedProjectId, assignee: keepAssignee ? prev.assignee : [] }));
-  
-    // Clear project error
-    if (errors.project) setErrors(prev => ({ ...prev, project: '' }));
-  
     const selectedProject = projectList.find(p => String(p._id) === String(selectedProjectId));
+  
     if (!selectedProject) {
       setProjectMembers([]);
       return;
     }
   
     try {
-      const query = selectedProject.members.map(id => `_id=${id}`).join('&');
+      const query = selectedProject.members.map(id => `_id=${id}`).join("&");
       const res = await fetch(`/api/users?${query}`);
       const users = await res.json();
-      const members = Array.isArray(users) ? users : [];
-      setProjectMembers(members);
   
-      // ✅ If keeping assignees, only keep those that exist in members
-      if (keepAssignee && taskToEdit) {
-        const validAssignees = taskToEdit.assignee.filter(id => members.some(m => String(m._id) === String(id)));
-        setFormData(prev => ({ ...prev, assignee: validAssignees }));
-      }
-  
+      setProjectMembers(Array.isArray(users) ? users : []);
     } catch (err) {
-      console.error('Failed to fetch members:', err);
+      console.error("Failed to fetch members:", err);
       setProjectMembers([]);
     }
   };
+  
   
   // 📥 Handle input field changes
   const handleInputChange = (e) => {
