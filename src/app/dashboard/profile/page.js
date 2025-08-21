@@ -1,8 +1,8 @@
 'use client';
 
-import Layout from '../../components/layout/Layout';
-import Button from '../../components/ui/Button';
-import Loader from '../../components/ui/Loader';
+import Layout from '@/components/layout/Layout';
+import Button from '@/components/ui/Button';
+import Loader from '@/components/ui/Loader';
 import { Toaster, toast } from 'react-hot-toast';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';

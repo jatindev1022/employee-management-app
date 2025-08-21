@@ -32,8 +32,24 @@ export default function Topbar({ onMenuClick }) {
   const [loading, setLoading] = useState(false);
 
 
-
-
+  const handleLogout = async () => {
+    try {
+      const res = await fetch("/api/logout", { 
+        method: "POST",
+        credentials: 'include' // ✅ FIXED: Include cookies
+      });
+      
+      if (res.ok) {
+        // console.log('here');
+        localStorage.removeItem('userId');
+        toast.success('Logged out successfully');
+        router.push('/login');
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+      router.push("/login"); // Still redirect on error
+    }
+  };
   const handleSearch = (e) => {
     e.preventDefault();
     if (searchTerm.trim()) {
@@ -467,19 +483,22 @@ export default function Topbar({ onMenuClick }) {
             {showUserMenu && (
               <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 z-50 border">
                 <div className="py-1">
-                  <Link href="/profile" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors">
+                  <Link href="/dashboard/profile" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors">
                     <i className="ri-user-line mr-3 w-4 h-4 flex items-center justify-center"></i>
                     Profile
                   </Link>
-                  <Link href="/settings" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors">
+                  <Link href="/dashboard/settings" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors">
                     <i className="ri-settings-line mr-3 w-4 h-4 flex items-center justify-center"></i>
                     Configuration
                   </Link>
                   <div className="border-t border-gray-100 my-1"></div>
-                  <Link href="/login" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors">
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                  >
                     <i className="ri-logout-box-line mr-3 w-4 h-4 flex items-center justify-center"></i>
                     Sign out
-                  </Link>
+                  </button>
                 </div>
               </div>
             )}

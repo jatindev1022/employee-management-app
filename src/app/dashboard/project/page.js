@@ -1,9 +1,9 @@
 'use client';
 
-import Layout from '../../components/layout/Layout';
-import Button from '../../components/ui/Button';
-import Badge from '../../components/ui/Badge';
-import Modal from '../../components/ui/Modal';
+import Layout from '@/components/layout/Layout';
+import Button from '@/components/ui/Button';
+import Badge from '@/components/ui/Badge';
+import Modal from '@/components/ui/Modal';
 import { useState, useEffect } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
 import { useDispatch, useSelector } from "react-redux";
@@ -42,7 +42,7 @@ function ProjectTable({ projects, onEdit, onDelete, onView ,onManageMembers}) {
   function handleViewTasks(project){
     dispatch(setCurrentProject(project)); // store project info in redux
     const projectSlug = project.name.replace(/ /g, "_");
-    router.push(`/project/${projectSlug}/task?projectId=${project._id}`);
+    router.push(`/dashboard/project/${projectSlug}/task?projectId=${project._id}`);
   }
   
 
