@@ -9,6 +9,7 @@ import Button from '@/components/ui/Button';
 import { Toaster, toast } from 'react-hot-toast';
 import { addProject } from '@/store/slices/projectSlice';
 import { useDispatch, useSelector } from "react-redux";
+import api from '@/lib/apiClient';
 
 import { fetchTeamMembers } from "@/store/slices/teamMemberSlice";
 import Image from 'next/image';
@@ -72,7 +73,39 @@ export default function Topbar({ onMenuClick }) {
     }
   }, [showNotifications, showUserMenu]);
 
+const [user, setUser] = useState({
+    firstName: '',
+    lastName: '',
+    position: '',
+    profileImage: '', // url of profile
+  });
 
+  useEffect(() => {
+    const userId = localStorage.getItem('userId'); // get userId
+    if (userId) {
+      fetchUser(userId);
+    }
+  }, []);
+
+  const fetchUser = async (userId) => {
+    try {
+      const res = await api.get(`/users?_id=${userId}`);
+      if (res.data && res.data.length > 0) {
+        const userData = res.data[0]; // get the first user from the array
+        setUser({
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          position: userData.position,
+          profileImage: userData.profileImage || '',
+        });
+      } else {
+        console.warn('User not found');
+      }
+    } catch (err) {
+      console.error('Failed to fetch user:', err);
+    }
+  };
+  
   
   function AddProjectModal({ isOpen, onClose }) {
     const [formData, setFormData] = useState({
@@ -465,20 +498,23 @@ export default function Topbar({ onMenuClick }) {
           
           {/* User Menu */}
           <div className="relative dropdown-container">
-            <button
+          <button
               onClick={() => setShowUserMenu(!showUserMenu)}
               className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 transition-colors"
             >
-          <Image
-            src="https://readdy.ai/api/search-image?query=professional%20business%20person%20avatar%20headshot%20with%20friendly%20smile%2C%20clean%20background%2C%20corporate%20style%2C%20high%20quality%20portrait&width=40&height=40&seq=user-avatar&orientation=squarish"
-            alt="Profile"
-            width={40}
-            height={40}
-            className="rounded-full object-cover ring-2 ring-gray-200"
-          />
-              <span className="text-sm font-medium text-gray-700 hidden sm:block">John Doe</span>
+              <Image
+                src={user.profileImage || "https://readdy.ai/api/search-image?query=professional%20business%20person%20avatar%20headshot%20with%20friendly%20smile%2C%20clean%20background%2C%20corporate%20style%2C%20high%20quality%20portrait&width=40&height=40&seq=user-avatar&orientation=squarish"}
+                alt="Profile"
+                width={40}
+                height={40}
+                className="rounded-full object-cover ring-2 ring-gray-200"
+              />
+              <span className="text-sm font-medium text-gray-700 hidden sm:block">
+                {user.firstName || "John"} {user.lastName || "Doe"}
+              </span>
               <i className="ri-arrow-down-s-line text-gray-400 w-4 h-4 flex items-center justify-center"></i>
             </button>
+
             
             {showUserMenu && (
               <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 z-50 border">
