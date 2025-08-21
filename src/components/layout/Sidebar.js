@@ -13,6 +13,7 @@ import { fetchProjects, setProjects } from '@/store/slices/projectSlice';
 import { fetchTasksByProject ,updateTaskStatus ,addTask} from "@/store/slices/taskSlice";
 import api from '@/lib/apiClient';
 import Image from 'next/image'
+import { fetchUserById } from "@/store/slices/userSlice";
 
 function QuickAddModal({ isOpen, onClose }) {
   const initialState = {
@@ -274,40 +275,23 @@ function QuickAddModal({ isOpen, onClose }) {
 export default function Sidebar({ isOpen, onClose }) {
   const pathname = usePathname();
   const [showQuickAddModal, setShowQuickAddModal] = useState(false);
-  const [user, setUser] = useState({
-    firstName: '',
-    lastName: '',
-    position: '',
-    profileImage: '', // url of profile
-  });
+  
+  const dispatch = useDispatch();
+  const user = useSelector((state) => state.user.data);
 
   useEffect(() => {
-    const userId = localStorage.getItem('userId'); // get userId
+    const userId = localStorage.getItem("userId");
     if (userId) {
-      fetchUser(userId);
+      dispatch(fetchUserById(userId));
     }
-  }, []);
+  }, [dispatch]);
+  
+  const defaultAvatar =
+  "https://readdy.ai/api/search-image?query=professional%20business%20person%20avatar%20headshot%20with%20friendly%20smile%2C%20clean%20background%2C%20corporate%20style%2C%20high%20quality%20portrait&width=40&height=40&seq=sidebar-avatar&orientation=squarish";
 
-  const fetchUser = async (userId) => {
-    try {
-      const res = await api.get(`/users?_id=${userId}`);
-      if (res.data && res.data.length > 0) {
-        const userData = res.data[0]; // get the first user from the array
-        setUser({
-          firstName: userData.firstName,
-          lastName: userData.lastName,
-          position: userData.position,
-          profileImage: userData.profileImage || '',
-        });
-      } else {
-        console.warn('User not found');
-      }
-    } catch (err) {
-      console.error('Failed to fetch user:', err);
-    }
-  };
-  
-  
+if (!user) return null; // optional: loading state
+
+
   const menuItems = [
     { href: '/dashboard', icon: 'ri-dashboard-fill', label: 'Dashboard', color: 'text-blue-600' },
     { href: '/dashboard/profile', icon: 'ri-user-fill', label: 'Profile', color: 'text-green-600' },
@@ -364,10 +348,8 @@ export default function Sidebar({ isOpen, onClose }) {
           <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
             <div className="flex items-center space-x-3">
               <Image
-                src={
-                  user.profileImage ||
-                  'https://readdy.ai/api/search-image?query=professional%20business%20person%20avatar%20headshot%20with%20friendly%20smile%2C%20clean%20background%2C%20corporate%20style%2C%20high%20quality%20portrait&width=40&height=40&seq=sidebar-avatar&orientation=squarish'
-                }
+                key={user.profileImage || "default-avatar"}
+                src={user.profileImage || defaultAvatar}
                 alt="Profile"
                 width={40}
                 height={40}
