@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchProjects, setProjects } from '@/store/slices/projectSlice';
+import api from '@/lib/apiClient';
 
 
 function QuickAddTaskModal({ isOpen, onClose }) {
@@ -274,102 +275,199 @@ function QuickAddTaskModal({ isOpen, onClose }) {
 
 function AddMemberModal({ isOpen, onClose }) {
   const [formData, setFormData] = useState({
-    name: '',
+    firstName: '',
+    lastName: '',
     email: '',
-    role: '',
-    department: '',
-    phone: ''
+    phone: '',
+    team: '',
+    position: '',
   });
-  
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log('Adding member:', formData);
-    // Member addition logic here
-    onClose();
-    setFormData({
-      name: '',
-      email: '',
-      role: '',
-      department: '',
-      phone: ''
-    });
+
+  const [errors, setErrors] = useState({});
+
+  const validateField = (name, value) => {
+    switch (name) {
+      case 'firstName':
+      case 'lastName':
+        if (!value.trim()) return 'This field is required';
+        break;
+      case 'email':
+        if (!value.trim()) return 'Email is required';
+        // simple email regex
+        if (!/^\S+@\S+\.\S+$/.test(value)) return 'Invalid email';
+        break;
+      case 'team':
+        if (!value) return 'Select a team';
+        break;
+      default:
+        return '';
+    }
+    return '';
   };
-  
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+
+    // remove error as user types
+    setErrors((prev) => ({ ...prev, [name]: '' }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    // Validate all fields
+    const newErrors = {};
+    Object.keys(formData).forEach((key) => {
+      const error = validateField(key, formData[key]);
+      if (error) newErrors[key] = error;
+    });
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    try {
+      const res = await api.post('/users', formData);
+
+      if (res.data?.success) {
+        toast.success('Member added successfully!');
+
+        if (res.data.tempPassword) {
+          toast(`Temporary password: ${res.data.tempPassword}`, { icon: 'ℹ️' });
+        }
+
+        handleClose(); // reset & close
+      } else {
+        toast.error(res.data?.message || 'Failed to add member');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to add member');
+    }
+  };
+
+  const handleClose = () => {
+    setFormData({
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      team: '',
+      position: '',
+    });
+    setErrors({});
+    onClose();
+  };
+
+  const inputClass = (name) =>
+    `w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+      errors[name] ? 'border-red-500' : 'border-gray-300'
+    }`;
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Add Team Member" size="lg">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
-          <input
-            type="text"
-            value={formData.name}
-            onChange={(e) => setFormData({...formData, name: e.target.value})}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter full name..."
-            required
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
-          <input
-            type="email"
-            value={formData.email}
-            onChange={(e) => setFormData({...formData, email: e.target.value})}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter email address..."
-            required
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
+    <Modal isOpen={isOpen} onClose={handleClose} title="Add Team Member" size="lg">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* First Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
-            <select
-              value={formData.role}
-              onChange={(e) => setFormData({...formData, role: e.target.value})}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 pr-8"
-              required
-            >
-              <option value="">Select role</option>
-              <option value="Developer">Developer</option>
-              <option value="Designer">Designer</option>
-              <option value="Manager">Manager</option>
-              <option value="Analyst">Analyst</option>
-            </select>
+            <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+            <input
+              type="text"
+              name="firstName"
+              value={formData.firstName}
+              onChange={handleChange}
+              className={inputClass('firstName')}
+              placeholder="Enter first name..."
+            />
+            {errors.firstName && <p className="text-red-500 text-sm mt-1">{errors.firstName}</p>}
           </div>
+
+          {/* Last Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+            <input
+              type="text"
+              name="lastName"
+              value={formData.lastName}
+              onChange={handleChange}
+              className={inputClass('lastName')}
+              placeholder="Enter last name..."
+            />
+            {errors.lastName && <p className="text-red-500 text-sm mt-1">{errors.lastName}</p>}
+          </div>
+
+          {/* Email */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <input
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              className={inputClass('email')}
+              placeholder="Enter email..."
+            />
+            {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
+          </div>
+
+          {/* Phone */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+            <input
+              type="tel"
+              name="phone"
+              value={formData.phone}
+              onChange={handleChange}
+              className={inputClass('phone')}
+              placeholder="Enter phone..."
+            />
+          </div>
+
+          {/* Team dropdown */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Team</label>
             <select
-              value={formData.department}
-              onChange={(e) => setFormData({...formData, department: e.target.value})}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 pr-8"
-              required
+              name="team"
+              value={formData.team}
+              onChange={handleChange}
+              className={inputClass('team')}
             >
-              <option value="">Select department</option>
-              <option value="Engineering">Engineering</option>
-              <option value="Design">Design</option>
-              <option value="Marketing">Marketing</option>
-              <option value="Sales">Sales</option>
+              <option value="">Select a team</option>
+              <option value="frontend">Frontend Team</option>
+              <option value="design">Design Team</option>
+              <option value="backend">Backend Team</option>
+              <option value="sales">Sales</option>
+              <option value="hr">HR</option>
             </select>
+            {errors.team && <p className="text-red-500 text-sm mt-1">{errors.team}</p>}
+          </div>
+
+          {/* Position */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Position</label>
+            <input
+              type="text"
+              name="position"
+              value={formData.position}
+              onChange={handleChange}
+              className={inputClass('position')}
+              placeholder="Enter position..."
+            />
           </div>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
-          <input
-            type="tel"
-            value={formData.phone}
-            onChange={(e) => setFormData({...formData, phone: e.target.value})}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter phone number..."
-          />
-        </div>
+
         <div className="flex justify-end space-x-3 pt-4">
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button variant="outline" onClick={handleClose}>Cancel</Button>
           <Button type="submit">Add Member</Button>
         </div>
       </form>
     </Modal>
   );
 }
+
+
+
 
 function ScheduleMeetingModal({ isOpen, onClose }) {
   const [formData, setFormData] = useState({
@@ -493,6 +591,7 @@ export default function Home() {
   return (
     <Layout>
         <Toaster position="top-right" reverseOrder={false} />
+
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
         <p>Welcome back!</p>
