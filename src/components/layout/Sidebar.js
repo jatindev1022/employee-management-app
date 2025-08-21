@@ -11,6 +11,8 @@ import { Toaster, toast } from 'react-hot-toast';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchProjects, setProjects } from '@/store/slices/projectSlice';
 import { fetchTasksByProject ,updateTaskStatus ,addTask} from "@/store/slices/taskSlice";
+import api from '@/lib/apiClient';
+import Image from 'next/image'
 
 function QuickAddModal({ isOpen, onClose }) {
   const initialState = {
@@ -272,6 +274,39 @@ function QuickAddModal({ isOpen, onClose }) {
 export default function Sidebar({ isOpen, onClose }) {
   const pathname = usePathname();
   const [showQuickAddModal, setShowQuickAddModal] = useState(false);
+  const [user, setUser] = useState({
+    firstName: '',
+    lastName: '',
+    position: '',
+    profileImage: '', // url of profile
+  });
+
+  useEffect(() => {
+    const userId = localStorage.getItem('userId'); // get userId
+    if (userId) {
+      fetchUser(userId);
+    }
+  }, []);
+
+  const fetchUser = async (userId) => {
+    try {
+      const res = await api.get(`/users?_id=${userId}`);
+      if (res.data && res.data.length > 0) {
+        const userData = res.data[0]; // get the first user from the array
+        setUser({
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          position: userData.position,
+          profileImage: userData.profileImage || '',
+        });
+      } else {
+        console.warn('User not found');
+      }
+    } catch (err) {
+      console.error('Failed to fetch user:', err);
+    }
+  };
+  
   
   const menuItems = [
     { href: '/dashboard', icon: 'ri-dashboard-fill', label: 'Dashboard', color: 'text-blue-600' },
@@ -328,14 +363,21 @@ export default function Sidebar({ isOpen, onClose }) {
           {/* User Profile Section */}
           <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
             <div className="flex items-center space-x-3">
-              <img
-                src="https://readdy.ai/api/search-image?query=professional%20business%20person%20avatar%20headshot%20with%20friendly%20smile%2C%20clean%20background%2C%20corporate%20style%2C%20high%20quality%20portrait&width=40&height=40&seq=sidebar-avatar&orientation=squarish"
+              <Image
+                src={
+                  user.profileImage ||
+                  'https://readdy.ai/api/search-image?query=professional%20business%20person%20avatar%20headshot%20with%20friendly%20smile%2C%20clean%20background%2C%20corporate%20style%2C%20high%20quality%20portrait&width=40&height=40&seq=sidebar-avatar&orientation=squarish'
+                }
                 alt="Profile"
-                className="w-10 h-10 rounded-full object-cover ring-2 ring-gray-200"
+                width={40}
+                height={40}
+                className="rounded-full object-cover ring-2 ring-gray-200"
               />
               <div>
-                <p className="text-sm font-medium text-gray-900">John Doe</p>
-                <p className="text-xs text-gray-500">Senior Developer</p>
+                <p className="text-sm font-medium text-gray-900">
+                  {user.firstName} {user.lastName}
+                </p>
+                <p className="text-xs text-gray-500">{user.position}</p>
               </div>
             </div>
           </div>
