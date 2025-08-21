@@ -1,8 +1,8 @@
 'use client';
 
-import Layout from '../../components/layout/Layout';
-import Button from '../../components/ui/Button';
-import Badge from '../../components/ui/Badge';
+import Layout from '../../../components/layout/Layout';
+import Button from '../../../components/ui/Button';
+import Badge from '../../../components/ui/Badge';
 import { useState } from 'react';
 
 function AccountSettings() {

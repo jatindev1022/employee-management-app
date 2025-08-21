@@ -275,14 +275,14 @@ export default function Sidebar({ isOpen, onClose }) {
   
   const menuItems = [
     { href: '/dashboard', icon: 'ri-dashboard-fill', label: 'Dashboard', color: 'text-blue-600' },
-    { href: '/profile', icon: 'ri-user-fill', label: 'Profile', color: 'text-green-600' },
-    { href: '/calendar', icon: 'ri-calendar-fill', label: 'Calendar', color: 'text-purple-600' },
-    { href: '/project', icon: 'ri-folder-chart-fill', label: 'Project', color: 'text-orange-600' },
-    // { href: '/tasks', icon: 'ri-task-fill', label: 'Tasks', color: 'text-orange-600' },
-    { href: '/inbox', icon: 'ri-message-3-fill', label: 'Inbox', color: 'text-pink-600' },
-    { href: '/search', icon: 'ri-search-fill', label: 'Search', color: 'text-indigo-600' },
-    { href: '/employees', icon: 'ri-team-fill', label: 'Employees', color: 'text-cyan-600' },
-    { href: '/settings', icon: 'ri-settings-fill', label: 'Settings', color: 'text-gray-600' }
+    { href: '/dashboard/profile', icon: 'ri-user-fill', label: 'Profile', color: 'text-green-600' },
+    { href: '/dashboard/calendar', icon: 'ri-calendar-fill', label: 'Calendar', color: 'text-purple-600' },
+    { href: '/dashboard/project', icon: 'ri-folder-chart-fill', label: 'Project', color: 'text-orange-600' },
+    // { href: '/dashboard/tasks', icon: 'ri-task-fill', label: 'Tasks', color: 'text-orange-600' },
+    { href: '/dashboard/inbox', icon: 'ri-message-3-fill', label: 'Inbox', color: 'text-pink-600' },
+    { href: '/dashboard/search', icon: 'ri-search-fill', label: 'Search', color: 'text-indigo-600' },
+    { href: '/dashboard/employees', icon: 'ri-team-fill', label: 'Employees', color: 'text-cyan-600' },
+    { href: '/dashboard/settings', icon: 'ri-settings-fill', label: 'Settings', color: 'text-gray-600' }
   ];
   
   return (

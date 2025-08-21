@@ -1,10 +1,10 @@
 
 'use client';
 
-import Layout from '../../components/layout/Layout';
-import Button from '../../components/ui/Button';
-import Badge from '../../components/ui/Badge';
-import Modal from '../../components/ui/Modal';
+import Layout from '@/components/layout/Layout';
+import Button from '@/components/ui/Button';
+import Badge from '@/components/ui/Badge';
+import Modal from '@/components/ui/Modal';
 import { useState } from 'react';
 
 function CalendarGrid({ currentDate, events, onDateClick, selectedDate }) {

@@ -1,11 +1,13 @@
 'use client';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState ,useEffect} from 'react';
 import { useRouter } from 'next/navigation';
 import { NextResponse } from 'next/server';
 import { Toaster, toast } from 'react-hot-toast';
 import { useDispatch } from 'react-redux';
 import { setUser } from '@/store/slices/userSlice'; 
+import api from '@/lib/apiClient';
+import Cookies from 'js-cookie';
 
 
 export default function LoginForm() {
@@ -15,6 +17,17 @@ export default function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const dispatch = useDispatch();
+
+
+  useEffect(() => {
+    const redirected = Cookies.get('fromMiddleware');
+    if (redirected) {
+      toast.error("You must be logged in to access the dashboard.");
+      Cookies.remove('fromMiddleware'); // clear so it doesn’t repeat
+    }
+  }, []);
+
+
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -49,24 +62,17 @@ export default function LoginForm() {
 
     setLoading(true);
     try {
-      const res = await fetch('/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      });
-
-      const data = await res.json();
-
-      if (res.ok) {
-        localStorage.setItem('userId', data.user.userId);
-        dispatch(setUser(data.user));
-        toast.success('Login successfully!');
-        router.push('/dashboard');
-      } else {
-        toast.error(data.message || 'Login failed');
-      }
-    } catch {
-      toast.error('Something went wrong.');
+      const res = await api.post('/login', form); // ✅ Axios call
+      const data = res.data; // ✅ Axios returns response.data
+      localStorage.setItem('userId', data.user.userId);
+      // Redux store update
+      dispatch(setUser(data.user));
+     
+  
+      toast.success("Login successfully!");
+      router.push("/dashboard"); // redirect to dashboard
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Login failed");
     } finally {
       setLoading(false);
     }
