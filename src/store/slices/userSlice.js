@@ -18,6 +18,25 @@ export const fetchUsers=createAsyncThunk(
      }
 );
 
+export const fetchUserById = createAsyncThunk(
+  "user/fetchUserById",
+  async (userId, { rejectWithValue }) => {
+    try {
+      const res = await fetch(`/api/users?_id=${userId}`);
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.message || "Failed to fetch user data");
+
+      if (!data || data.length === 0) throw new Error("User not found");
+
+      return data[0]; // first user from array
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+
 
 
 
@@ -74,6 +93,19 @@ const userSlice=createSlice({
         state.users = action.payload;
       })
       .addCase(fetchUsers.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      .addCase(fetchUserById.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchUserById.fulfilled, (state, action) => {
+        state.loading = false;
+        state.data = action.payload;
+      })
+      .addCase(fetchUserById.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       });
