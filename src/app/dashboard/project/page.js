@@ -314,11 +314,13 @@ function ProjectModal({ isOpen, onClose, project, onSave }) {
 
 
   // Add this effect: Reset form when modal is opened/closed
-useEffect(() => {
-  if (isOpen) {
+  useEffect(() => {
+    if (!isOpen) return; // Only run when modal is open
+  
     if (project) {
+      setErrors({});
       setFormData({
-        _id: project._id,
+        _id: project._id || "",
         name: project.name || "",
         description: project.description || "",
         priority: project.priority || "medium",
@@ -329,14 +331,19 @@ useEffect(() => {
           ? new Date(project.endDate).toISOString().split("T")[0]
           : "",
         team: project.team || "",
-        members: [...new Set(project.members || [])],
+        members: [...new Set(project.members || [])], // ensures no duplicates
       });
-
+  
+      // Update members list if team exists
       if (project.team) {
-        setAvailableMembers(membersByTeam[project.team] || []);
+        setAvailableMembers(membersByTeam?.[project.team] || []);
+      } else {
+        setAvailableMembers([]);
       }
     } else {
+      // Reset if no project passed
       setFormData({
+        _id: "",
         name: "",
         description: "",
         priority: "medium",
@@ -348,9 +355,8 @@ useEffect(() => {
       setErrors({});
       setAvailableMembers([]);
     }
-  }
-}, [isOpen, project, membersByTeam]);
-
+  }, [isOpen, project, membersByTeam]);
+  
 
   const validate = () => {
     const newErrors = {};
