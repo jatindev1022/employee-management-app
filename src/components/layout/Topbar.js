@@ -313,7 +313,7 @@ function AddProjectModal({ isOpen, onClose }) {
             )}
 
             {/* No members available */}
-            {!membersLoading && formData.team && availableMembers.length === 0 && (
+            {/* {!membersLoading && formData.team && availableMembers.length === 0 && (
               <div className="border border-yellow-200 rounded-lg p-4 bg-yellow-50">
                 <div className="flex items-center space-x-2">
                   <svg className="h-5 w-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -323,7 +323,7 @@ function AddProjectModal({ isOpen, onClose }) {
                 </div>
                 <p className="text-xs text-yellow-700 mt-1 ml-7">This team doesn't have any members yet. Contact your administrator to add members.</p>
               </div>
-            )}
+            )} */}
 
             {/* Team not selected */}
             {!formData.team && (
