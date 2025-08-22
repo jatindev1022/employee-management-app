@@ -276,28 +276,34 @@ function ProjectTable({ projects, onEdit, onDelete, onView ,onManageMembers}) {
 
 function ProjectModal({ isOpen, onClose, project, onSave }) {
   const dispatch = useDispatch();
-  const users = useSelector(state => state.user.users);
+  const users = useSelector((state) => state.user.users);
 
   const getUserNameById = (id) => {
-    const user = users.find(u => u._id === id);
-    if (!user) return id; // fallback to showing id if no user found
+    const user = users.find((u) => u._id === id);
+    if (!user) return id;
     return `${user.firstName} ${user.lastName}`.trim();
   };
 
   const [formData, setFormData] = useState({
-    name: project?.name || '',
-    description: project?.description || '',
-    priority: project?.priority || 'medium',
-    startDate: project?.startDate ? new Date(project.startDate).toISOString().split('T')[0] : '',
-    endDate: project?.endDate ? new Date(project.endDate).toISOString().split('T')[0] : '',
-    team: project?.team || '',
-    members: project?.members || []
+    name: project?.name || "",
+    description: project?.description || "",
+    priority: project?.priority || "medium",
+    startDate: project?.startDate
+      ? new Date(project.startDate).toISOString().split("T")[0]
+      : "",
+    endDate: project?.endDate
+      ? new Date(project.endDate).toISOString().split("T")[0]
+      : "",
+    team: project?.team || "",
+    members: project?.members || [],
   });
-  const [errors, setErrors] = useState({})
-  const [memberInput, setMemberInput] = useState('');
+
+  const [errors, setErrors] = useState({});
   const [availableMembers, setAvailableMembers] = useState([]);
 
-  const { membersByTeam, loading: membersLoading, error: membersError } = useSelector((state) => state.team);
+  const { membersByTeam, loading: membersLoading } = useSelector(
+    (state) => state.team
+  );
 
   useEffect(() => {
     if (Object.keys(membersByTeam).length === 0) {
@@ -305,11 +311,14 @@ function ProjectModal({ isOpen, onClose, project, onSave }) {
     }
   }, [dispatch, membersByTeam]);
 
-  // Load project data when editing
-  useEffect(() => {
+
+
+  // Add this effect: Reset form when modal is opened/closed
+useEffect(() => {
+  if (isOpen) {
     if (project) {
       setFormData({
-        _id: project._id, // keep _id so backend knows it's an update
+        _id: project._id,
         name: project.name || "",
         description: project.description || "",
         priority: project.priority || "medium",
@@ -327,7 +336,6 @@ function ProjectModal({ isOpen, onClose, project, onSave }) {
         setAvailableMembers(membersByTeam[project.team] || []);
       }
     } else {
-      // reset for new project
       setFormData({
         name: "",
         description: "",
@@ -340,22 +348,25 @@ function ProjectModal({ isOpen, onClose, project, onSave }) {
       setErrors({});
       setAvailableMembers([]);
     }
-  }, [project, membersByTeam]);
+  }
+}, [isOpen, project, membersByTeam]);
 
-  // Validation function
+
   const validate = () => {
     const newErrors = {};
-    if (!formData.name.trim()) newErrors.name = 'Project name is required';
+    if (!formData.name.trim()) newErrors.name = "Project name is required";
     if (!formData.description.trim()) {
-      newErrors.description = 'Description is required';
+      newErrors.description = "Description is required";
     } else if (formData.description.trim().length < 10) {
-      newErrors.description = 'Description must be at least 10 characters';
+      newErrors.description = "Description must be at least 10 characters";
     }
-    if (!formData.team) newErrors.team = 'Team selection is required';
-    if (formData.members.length === 0) newErrors.members = 'Please select at least one member';
-    if (!formData.startDate) newErrors.startDate = 'Start date is required';
-    if (!formData.endDate) newErrors.endDate = 'End date is required';
-    else if (formData.startDate && formData.endDate < formData.startDate) newErrors.endDate = 'End date cannot be before start date';
+    if (!formData.team) newErrors.team = "Team selection is required";
+    if (formData.members.length === 0)
+      newErrors.members = "Please select at least one member";
+    if (!formData.startDate) newErrors.startDate = "Start date is required";
+    if (!formData.endDate) newErrors.endDate = "End date is required";
+    else if (formData.startDate && formData.endDate < formData.startDate)
+      newErrors.endDate = "End date cannot be before start date";
     return newErrors;
   };
 
@@ -366,37 +377,37 @@ function ProjectModal({ isOpen, onClose, project, onSave }) {
     if (Object.keys(validationErrors).length > 0) return;
 
     onSave(formData);
-    toast.success(`Project ${project ? 'updated' : 'added'} successfully!`);
+    toast.success(`Project ${project ? "updated" : "added"} successfully!`);
     onClose();
   };
 
   const handleTeamChange = (e) => {
     const team = e.target.value;
-    setErrors((prev) => ({ ...prev, team: '', members: '' }));
+    setErrors((prev) => ({ ...prev, team: "", members: "" }));
     setFormData((prev) => ({ ...prev, team, members: [] }));
     setAvailableMembers(membersByTeam[team] || []);
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setErrors((prev) => ({ ...prev, [name]: '' }));
+    setErrors((prev) => ({ ...prev, [name]: "" }));
     setFormData({ ...formData, [name]: value });
   };
 
-  const addMember = () => {
-    if (memberInput.trim() && !formData.members.includes(memberInput.trim())) {
-      setFormData({
-        ...formData,
-        members: [...formData.members, memberInput.trim()]
-      });
-      setMemberInput('');
-    }
+  const handleMemberToggle = (memberId) => {
+    setErrors((prev) => ({ ...prev, members: "" }));
+    setFormData((prev) => {
+      const updatedMembers = prev.members.includes(memberId)
+        ? prev.members.filter((id) => id !== memberId)
+        : [...prev.members, memberId];
+      return { ...prev, members: updatedMembers };
+    });
   };
 
   const removeMember = (memberToRemove) => {
     setFormData({
       ...formData,
-      members: formData.members.filter(member => member !== memberToRemove)
+      members: formData.members.filter((m) => m !== memberToRemove),
     });
   };
 
@@ -404,32 +415,41 @@ function ProjectModal({ isOpen, onClose, project, onSave }) {
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={project ? 'Edit Project' : 'Add New Project'}
+      title={project ? "Edit Project" : "Add New Project"}
       size="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Name + Team */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Project Name</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Project Name
+            </label>
             <input
               type="text"
               name="name"
               value={formData.name}
               onChange={handleChange}
               className={`w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.name ? 'border-red-500 ring-red-300' : 'border-gray-300'
+                errors.name ? "border-red-500 ring-red-300" : "border-gray-300"
               }`}
             />
-            {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
+            {errors.name && (
+              <p className="text-red-500 text-sm mt-1">{errors.name}</p>
+            )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Team</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Team
+            </label>
             <select
               name="team"
               value={formData.team}
               onChange={handleTeamChange}
               className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${
-                errors.team ? 'border-red-500 ring-red-300' : 'border-gray-300 focus:ring-blue-500'
+                errors.team
+                  ? "border-red-500 ring-red-300"
+                  : "border-gray-300 focus:ring-blue-500"
               }`}
             >
               <option value="">-- Choose a team --</option>
@@ -437,27 +457,115 @@ function ProjectModal({ isOpen, onClose, project, onSave }) {
               <option value="backend">Backend</option>
               <option value="design">Design</option>
             </select>
-            {errors.team && <p className="text-red-500 text-sm mt-1">{errors.team}</p>}
+            {errors.team && (
+              <p className="text-red-500 text-sm mt-1">{errors.team}</p>
+            )}
           </div>
         </div>
 
+        {/* Description */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Description
+          </label>
           <textarea
             name="description"
             value={formData.description}
             onChange={handleChange}
             rows={3}
             className={`w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              errors.description ? 'border-red-500 ring-red-300' : 'border-gray-300'
+              errors.description
+                ? "border-red-500 ring-red-300"
+                : "border-gray-300"
             }`}
           />
-          {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description}</p>}
+          {errors.description && (
+            <p className="text-red-500 text-sm mt-1">{errors.description}</p>
+          )}
         </div>
 
+        {/* Members */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Select Team Members
+          </label>
+
+          {membersLoading && formData.team && (
+            <p className="text-sm text-gray-500 py-2">Loading members...</p>
+          )}
+
+          {!membersLoading && availableMembers.length > 0 && (
+            <div
+              className={`max-h-32 overflow-y-auto border rounded-lg p-2 space-y-2 ${
+                errors.members ? "border-red-500" : "border-gray-300"
+              }`}
+            >
+              {availableMembers.map((member) => (
+                <label
+                  key={member._id}
+                  className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded text-sm"
+                >
+                  <input
+                    type="checkbox"
+                    checked={formData.members.includes(member._id)}
+                    onChange={() => handleMemberToggle(member._id)}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <span className="text-gray-700">{member.name}</span>
+                </label>
+              ))}
+            </div>
+          )}
+
+          {!membersLoading && formData.team && availableMembers.length === 0 && (
+            <p className="text-sm text-gray-500 py-2">
+              No members available for this team.
+            </p>
+          )}
+
+          {!formData.team && (
+            <p className="text-sm text-gray-500 py-2">
+              Select a team to view members.
+            </p>
+          )}
+
+          {errors.members && (
+            <p className="text-red-500 text-xs mt-1">{errors.members}</p>
+          )}
+        </div>
+
+        {/* Selected Members */}
+        {formData.members.length > 0 && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Selected Members ({formData.members.length})
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {formData.members.map((memberId) => (
+                <span
+                  key={memberId}
+                  className="inline-flex items-center bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-1 rounded-full"
+                >
+                  {getUserNameById(memberId)}
+                  <button
+                    type="button"
+                    onClick={() => removeMember(memberId)}
+                    className="ml-1 text-blue-600 hover:text-blue-800 focus:outline-none"
+                  >
+                    <i className="ri-close-line"></i>
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Dates + Priority */}
         <div className="grid grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Priority
+            </label>
             <select
               name="priority"
               value={formData.priority}
@@ -470,96 +578,53 @@ function ProjectModal({ isOpen, onClose, project, onSave }) {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Start Date
+            </label>
             <input
               type="date"
               name="startDate"
               value={formData.startDate}
               onChange={handleChange}
               className={`w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.startDate ? 'border-red-500 ring-red-300' : 'border-gray-300'
+                errors.startDate ? "border-red-500 ring-red-300" : "border-gray-300"
               }`}
             />
-            {errors.startDate && <p className="text-red-500 text-sm mt-1">{errors.startDate}</p>}
+            {errors.startDate && (
+              <p className="text-red-500 text-sm mt-1">{errors.startDate}</p>
+            )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              End Date
+            </label>
             <input
               type="date"
               name="endDate"
               value={formData.endDate}
               onChange={handleChange}
               className={`w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.endDate ? 'border-red-500 ring-red-300' : 'border-gray-300'
+                errors.endDate ? "border-red-500 ring-red-300" : "border-gray-300"
               }`}
             />
-            {errors.endDate && <p className="text-red-500 text-sm mt-1">{errors.endDate}</p>}
+            {errors.endDate && (
+              <p className="text-red-500 text-sm mt-1">{errors.endDate}</p>
+            )}
           </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Team Members</label>
-          <div className="flex gap-2 mb-2">
-            <select
-              multiple
-              disabled={!formData.team}
-              value={formData.members}
-              onChange={(e) => {
-                const selected = Array.from(e.target.selectedOptions).map((opt) => opt.value);
-                setErrors((prev) => ({ ...prev, members: '' }));
-                setFormData({ ...formData, members: selected });
-
-                if (selected.length === 0) {
-                  setErrors((prev) => ({
-                    ...prev,
-                    members: 'Please select at least one member.',
-                  }));
-                }
-              }}
-              className={
-                'w-full h-36 px-4 py-3 border rounded-lg shadow-sm text-sm bg-white text-gray-700 ' +
-                'focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed ' +
-                (errors.members
-                  ? 'border-red-500 focus:ring-red-400'
-                  : 'border-gray-300 focus:ring-blue-500')
-              }
-            >
-              {availableMembers.map((member) => (
-                <option key={member.name} value={member._id}>
-                  {member.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          {errors.members && (
-            <p className="text-red-500 text-sm mt-1">{errors.members}</p>
-          )}
-          {formData.members.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {formData.members.map(member => (
-                <div key={member} className="flex items-center gap-1 bg-gray-100 rounded-full px-3 py-1 text-sm">
-                  <span>{getUserNameById(member)}</span>
-                  <button
-                    type="button"
-                    onClick={() => removeMember(member)}
-                    className="text-red-500 hover:text-red-700"
-                  >
-                    <i className="ri-close-line"></i>
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
+        {/* Buttons */}
         <div className="flex justify-end space-x-3 pt-4">
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button type="submit">{project ? 'Update' : 'Add'} Project</Button>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit">{project ? "Update" : "Add"} Project</Button>
         </div>
       </form>
     </Modal>
   );
 }
+
 
 
 // function ManageMembersModal({ isOpen, onClose, project, onSave }) {

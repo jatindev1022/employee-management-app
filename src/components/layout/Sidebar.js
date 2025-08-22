@@ -27,11 +27,8 @@ function QuickAddModal({ isOpen, onClose }) {
 
   const [formData, setFormData] = useState(initialState);
   const [errors, setErrors] = useState({});
-  // const [projectList, setProjectList] = useState([]);
-
   const dispatch = useDispatch();
   const projectList = useSelector(state => state.project.projects);
-
   const [projectMembers, setProjectMembers] = useState([]);
 
   // 🧼 Reset form when modal is closed
@@ -44,22 +41,17 @@ function QuickAddModal({ isOpen, onClose }) {
   }, [isOpen]);
 
   // 🧠 Fetch all projects
-  useEffect(()=>{
+  useEffect(() => {
     dispatch(fetchProjects());
-  },[dispatch]);
+  }, [dispatch]);
 
   // 🧠 Handle project change and fetch members
   const handleProjectChange = async (e) => {
     const selectedProjectId = e.target.value;
     setFormData(prev => ({ ...prev, project: selectedProjectId, assignee: [] }));
-    
-    // Clear project error when user selects a project
-    if (errors.project) {
-      setErrors(prev => ({ ...prev, project: '' }));
-    }
+    if (errors.project) setErrors(prev => ({ ...prev, project: '' }));
 
     const selectedProject = projectList.find(p => String(p._id) === String(selectedProjectId));
-
     if (!selectedProject) {
       setProjectMembers([]);
       return;
@@ -80,11 +72,7 @@ function QuickAddModal({ isOpen, onClose }) {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    
-    // Clear specific field error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
   };
 
   // ✅ Validate form before submit
@@ -96,7 +84,6 @@ function QuickAddModal({ isOpen, onClose }) {
       newErrors.description = 'Description must be at least 10 characters';
     if (formData.assignee.length === 0) newErrors.assignee = 'Select at least one assignee';
     if (!formData.dueDate) newErrors.dueDate = 'Due date is required';
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -115,39 +102,44 @@ function QuickAddModal({ isOpen, onClose }) {
 
       const data = await res.json();
       if (res.ok) {
-        console.log('Task created:', data.task);
-        dispatch(addTask(data.task)); 
-        setFormData(initialState); // ✅ Reset on success
+        dispatch(addTask(data.task));
+        setFormData(initialState);
         setErrors({});
-        onClose(); // ✅ Close modal
+        onClose();
         toast.success('Task added successfully!');
-
       } else {
         toast.error(data.message || 'Failed to add task');
-        console.error('Create failed:', data.error);
       }
     } catch (error) {
-      toast.error(data.message || 'Error submitting task');
+      toast.error('Error submitting task');
       console.error('Error submitting task:', error);
     }
   };
 
-  // Handle assignee selection change
-  const handleAssigneeChange = (e) => {
-    const selected = Array.from(e.target.selectedOptions, opt => opt.value);
-    setFormData(prev => ({ ...prev, assignee: selected }));
-    
-    // Clear assignee error when user selects someone
-    if (errors.assignee && selected.length > 0) {
-      setErrors(prev => ({ ...prev, assignee: '' }));
-    }
+  // 🟦 Handle assignee checkbox toggle
+  const handleAssigneeToggle = (id) => {
+    setErrors(prev => ({ ...prev, assignee: '' }));
+    setFormData(prev => {
+      const updated = prev.assignee.includes(id)
+        ? prev.assignee.filter(a => a !== id)
+        : [...prev.assignee, id];
+      return { ...prev, assignee: updated };
+    });
+  };
+
+  // 🟦 Remove from selected badges
+  const handleRemoveAssignee = (id) => {
+    setFormData(prev => ({
+      ...prev,
+      assignee: prev.assignee.filter(a => a !== id)
+    }));
   };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Create New Task" size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
 
-        {/* 🟦 Project */}
+        {/* Project */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Project</label>
           <select
@@ -157,19 +149,15 @@ function QuickAddModal({ isOpen, onClose }) {
               errors.project ? 'border-red-500 ring-red-300' : 'border-gray-300 focus:ring-blue-500'
             }`}
           >
-        <option value="">Select a project</option>
-          {projectList.length > 0 &&
-            projectList.map((p) => (
-              <option key={p._id} value={p._id}>
-                {p.name}
-              </option>
+            <option value="">Select a project</option>
+            {projectList.map((p) => (
+              <option key={p._id} value={p._id}>{p.name}</option>
             ))}
-
           </select>
           {errors.project && <p className="text-red-500 text-sm mt-1">{errors.project}</p>}
         </div>
 
-        {/* 🟦 Title */}
+        {/* Title */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Task Title</label>
           <input
@@ -185,7 +173,7 @@ function QuickAddModal({ isOpen, onClose }) {
           {errors.title && <p className="text-red-500 text-sm mt-1">{errors.title}</p>}
         </div>
 
-        {/* 🟦 Description */}
+        {/* Description */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
           <textarea
@@ -201,27 +189,58 @@ function QuickAddModal({ isOpen, onClose }) {
           {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description}</p>}
         </div>
 
-        {/* 🟦 Assignee + Priority */}
+        {/* Assignee + Priority */}
         <div className="grid grid-cols-2 gap-4">
+      
           {/* Assignee */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Assignee</label>
-            <select
-              multiple
-              value={formData.assignee}
-              onChange={handleAssigneeChange}
-              className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none ${
-                errors.assignee ? 'border-red-500 ring-red-300' : 'border-gray-300 focus:ring-blue-500'
-              }`}
-            >
-              {projectMembers.map(m => (
-                <option key={m._id} value={m._id}>
-                  {m.firstName ? `${m.firstName} ${m.lastName}` : m.email}
-                </option>
-              ))}
-            </select>
-            {errors.assignee && <p className="text-red-500 text-sm mt-1">{errors.assignee}</p>}
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Select Assignees
+            </label>
+
+              {projectMembers.length > 0 ? (
+                <div
+                  className={`max-h-32 overflow-y-auto border rounded-lg p-2 space-y-2 ${
+                    errors.assignee ? "border-red-500" : "border-gray-300"
+                  }`}
+                >
+                  {projectMembers.map((m) => (
+                    <label
+                      key={m._id}
+                      className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded text-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={formData.assignee.includes(m._id)}
+                        onChange={() => handleAssigneeToggle(m._id)}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <span className="text-gray-700">
+                        {m.firstName ? `${m.firstName} ${m.lastName}` : m.email}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                  ) : (
+                  <div className="border border-dashed border-gray-300 rounded-lg p-4 text-center text-gray-500 text-sm">
+                    <svg
+                      className="mx-auto h-6 w-6 text-gray-400 mb-1"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Select a project to load team members
+                  </div>
+              )}
+
+              {errors.assignee && (
+                <p className="text-red-500 text-xs mt-1">{errors.assignee}</p>
+              )}
           </div>
+
 
           {/* Priority */}
           <div>
@@ -238,7 +257,36 @@ function QuickAddModal({ isOpen, onClose }) {
           </div>
         </div>
 
-        {/* 🟦 Due Date */}
+        {/* Selected Assignees */}
+        {formData.assignee.length > 0 && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Selected Assignees ({formData.assignee.length})
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {formData.assignee.map((id) => {
+                const member = projectMembers.find(m => m._id === id);
+                return (
+                  <span
+                    key={id}
+                    className="inline-flex items-center bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-1 rounded-full"
+                  >
+                    {member?.firstName ? `${member.firstName} ${member.lastName}` : member?.email || id}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveAssignee(id)}
+                      className="ml-1 text-blue-600 hover:text-blue-800"
+                    >
+                      ×
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Due Date */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Due Date</label>
           <input
@@ -253,7 +301,7 @@ function QuickAddModal({ isOpen, onClose }) {
           {errors.dueDate && <p className="text-red-500 text-sm mt-1">{errors.dueDate}</p>}
         </div>
 
-        {/* 🟦 Buttons */}
+        {/* Buttons */}
         <div className="flex justify-end space-x-3 pt-4">
           <Button
             variant="outline"
