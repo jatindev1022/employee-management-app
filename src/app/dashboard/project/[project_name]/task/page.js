@@ -222,259 +222,279 @@ function TaskColumn({ title, tasks, status, onDrop, onDragOver, onDragEnter, onD
   );
 }
 
-function QuickAddModal({ isOpen, onClose ,taskToEdit ,currentProjectId}) {
+function QuickAddModal({ isOpen, onClose, taskToEdit, currentProjectId }) {
   const initialState = {
-    project: currentProjectId || '', 
-    title: '',
-    description: '',
+    project: currentProjectId || "",
+    title: "",
+    description: "",
     assignee: [],
-    priority: 'medium',
-    dueDate: ''
+    priority: "medium",
+    dueDate: "",
   };
 
   const [formData, setFormData] = useState(initialState);
   const [errors, setErrors] = useState({});
-  const [pendingAssignees, setPendingAssignees] = useState([]);
-  // const [projectList, setProjectList] = useState([]);
-
-  const dispatch = useDispatch();
-  const projectList = useSelector(state => state.project.projects);
-
   const [projectMembers, setProjectMembers] = useState([]);
+  const dispatch = useDispatch();
+  const projectList = useSelector((state) => state.project.projects);
 
-  // 🧼 Reset form when modal is closed
   useEffect(() => {
     if (!isOpen) return;
-  
+
     if (taskToEdit) {
-      // set basic form data except assignees
-      // console.log(taskToEdit);
       setFormData({
-        project: taskToEdit.project || '',
-        title: taskToEdit.title || '',
-        description: taskToEdit.description || '',
-        assignee: (taskToEdit.assignee || []).map(a =>
+        project: taskToEdit.project || "",
+        title: taskToEdit.title || "",
+        description: taskToEdit.description || "",
+        assignee: (taskToEdit.assignee || []).map((a) =>
           typeof a === "string" ? a : a._id
         ),
-        priority: taskToEdit.priority || 'medium',
-        dueDate: taskToEdit.dueDate ? taskToEdit.dueDate.slice(0, 10) : ''
+        priority: taskToEdit.priority || "medium",
+        dueDate: taskToEdit.dueDate ? taskToEdit.dueDate.slice(0, 10) : "",
       });
-  
+
       if (taskToEdit.project) {
-        // fetch members and then set assignees
         handleProjectChange({ target: { value: taskToEdit.project } }, true);
       }
-  
     } else if (currentProjectId) {
-      // new task on project page
-      setFormData(prev => ({ ...initialState, project: currentProjectId }));
+      setFormData((prev) => ({ ...initialState, project: currentProjectId }));
       handleProjectChange({ target: { value: currentProjectId } });
     } else {
       setFormData(initialState);
     }
-  
+
     setErrors({});
   }, [isOpen, taskToEdit, currentProjectId]);
-  
-  
-  
 
-  // 🧠 Fetch all projects
-  useEffect(()=>{
+  useEffect(() => {
     dispatch(fetchProjects());
-  },[dispatch]);
+  }, [dispatch]);
 
-  // 🧠 Handle project change and fetch members
   const handleProjectChange = async (e, keepAssignee = false) => {
     const selectedProjectId = e.target.value;
-    const selectedProject = projectList.find(p => String(p._id) === String(selectedProjectId));
-  
+    const selectedProject = projectList.find(
+      (p) => String(p._id) === String(selectedProjectId)
+    );
+
     if (!selectedProject) {
       setProjectMembers([]);
       return;
     }
-  
+
     try {
-      const query = selectedProject.members.map(id => `_id=${id}`).join("&");
+      const query = selectedProject.members.map((id) => `_id=${id}`).join("&");
       const res = await fetch(`/api/users?${query}`);
       const users = await res.json();
-  
       setProjectMembers(Array.isArray(users) ? users : []);
     } catch (err) {
       console.error("Failed to fetch members:", err);
       setProjectMembers([]);
     }
   };
-  
-  
-  // 📥 Handle input field changes
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    
-    // Clear specific field error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
-  // ✅ Validate form before submit
+  const handleAssigneeToggle = (memberId) => {
+    setErrors((prev) => ({ ...prev, assignee: "" }));
+    setFormData((prev) => {
+      const updated = prev.assignee.includes(memberId)
+        ? prev.assignee.filter((id) => id !== memberId)
+        : [...prev.assignee, memberId];
+      return { ...prev, assignee: updated };
+    });
+  };
+
+  const handleRemoveAssignee = (memberId) => {
+    setFormData((prev) => ({
+      ...prev,
+      assignee: prev.assignee.filter((id) => id !== memberId),
+    }));
+  };
+
   const validateForm = () => {
     const newErrors = {};
-    if (!formData.project) newErrors.project = 'Project is required';
-    if (!formData.title) newErrors.title = 'Title is required';
+    if (!formData.project) newErrors.project = "Project is required";
+    if (!formData.title) newErrors.title = "Title is required";
     if (!formData.description || formData.description.length < 10)
-      newErrors.description = 'Description must be at least 10 characters';
-    if (formData.assignee.length === 0) newErrors.assignee = 'Select at least one assignee';
-    if (!formData.dueDate) newErrors.dueDate = 'Due date is required';
+      newErrors.description = "Description must be at least 10 characters";
+    if (formData.assignee.length === 0)
+      newErrors.assignee = "Select at least one assignee";
+    if (!formData.dueDate) newErrors.dueDate = "Due date is required";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  // 🚀 Submit task
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
-  
+
     try {
       const payload = taskToEdit
-        ? { _id: taskToEdit._id, ...formData, status: taskToEdit.status } // edit
-        : formData; // create
-  
+        ? { _id: taskToEdit._id, ...formData, status: taskToEdit.status }
+        : formData;
+
       const res = await fetch("/api/task", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-  
+
       const data = await res.json();
-  
+
       if (!res.ok || !data.success) {
-        toast.error(data.error || (taskToEdit ? "Update failed" : "Failed to add task"));
+        toast.error(
+          data.error || (taskToEdit ? "Update failed" : "Failed to add task")
+        );
         return;
       }
-  
+
       if (taskToEdit) {
-        // Update the task in Redux state
         dispatch(updateTaskDetails(data.task));
-        
       } else {
-        // Add new task to Redux state
         dispatch(addTask(data.task));
       }
-  
+
       toast.success(taskToEdit ? "Task updated!" : "Task created!");
       onClose();
       setFormData(initialState);
-  
     } catch (error) {
       toast.error(error.message || "Error submitting task");
     }
   };
-  
-  
 
-
-  // Handle assignee selection change
-  const handleAssigneeChange = (e) => {
-    const selected = Array.from(e.target.selectedOptions, opt => opt.value);
-    setFormData(prev => ({ ...prev, assignee: selected }));
-    
-    // Clear assignee error when user selects someone
-    if (errors.assignee && selected.length > 0) {
-      setErrors(prev => ({ ...prev, assignee: '' }));
-    }
-  };
+  if (!isOpen) return null;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Create New Task" size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
-
-        {/* 🟦 Project */}
+        {/* Project */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Project</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Project
+          </label>
           <select
             value={formData.project}
             onChange={handleProjectChange}
-            disabled={!!currentProjectId} // ❌ disable if project is pre-selected
+            disabled={!!currentProjectId}
             className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none ${
-              errors.project ? 'border-red-500 ring-red-300' : 'border-gray-300 focus:ring-blue-500'
+              errors.project
+                ? "border-red-500 ring-red-300"
+                : "border-gray-300 focus:ring-blue-500"
             }`}
           >
             {!currentProjectId && <option value="">Select a project</option>}
             {projectList
-              .filter(p => !currentProjectId || p._id === currentProjectId) // show only current project
-              .map(p => (
+              .filter(
+                (p) => !currentProjectId || String(p._id) === String(currentProjectId)
+              )
+              .map((p) => (
                 <option key={p._id} value={p._id}>
                   {p.name}
                 </option>
               ))}
           </select>
-
-          {errors.project && <p className="text-red-500 text-sm mt-1">{errors.project}</p>}
+          {errors.project && (
+            <p className="text-red-500 text-sm mt-1">{errors.project}</p>
+          )}
         </div>
 
-        {/* 🟦 Title */}
+        {/* Title */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Task Title</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Task Title
+          </label>
           <input
             type="text"
             name="title"
             value={formData.title}
             onChange={handleInputChange}
             className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none ${
-              errors.title ? 'border-red-500 ring-red-300' : 'border-gray-300 focus:ring-blue-500'
+              errors.title
+                ? "border-red-500 ring-red-300"
+                : "border-gray-300 focus:ring-blue-500"
             }`}
             placeholder="Enter task title..."
           />
-          {errors.title && <p className="text-red-500 text-sm mt-1">{errors.title}</p>}
+          {errors.title && (
+            <p className="text-red-500 text-sm mt-1">{errors.title}</p>
+          )}
         </div>
 
-        {/* 🟦 Description */}
+        {/* Description */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Description
+          </label>
           <textarea
             name="description"
             value={formData.description}
             onChange={handleInputChange}
             className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm resize-none ${
-              errors.description ? 'border-red-500 ring-red-300' : 'border-gray-300 focus:ring-blue-500'
+              errors.description
+                ? "border-red-500 ring-red-300"
+                : "border-gray-300 focus:ring-blue-500"
             }`}
             rows={3}
             placeholder="Minimum 10 characters"
           />
-          {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description}</p>}
+          {errors.description && (
+            <p className="text-red-500 text-sm mt-1">{errors.description}</p>
+          )}
         </div>
 
-        {/* 🟦 Assignee + Priority */}
-        <div className="grid grid-cols-2 gap-4">
-          {/* Assignee */}
+        {/* Assignees + Priority */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Assignees */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Assignee</label>
-            <select
-              multiple
-              value={formData.assignee}
-              onChange={handleAssigneeChange}
-              className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none ${
-                errors.assignee ? 'border-red-500 ring-red-300' : 'border-gray-300 focus:ring-blue-500'
-              }`}
-            >
-              {projectMembers.map(m => (
-                <option key={m._id} value={m._id}>
-                  {m.firstName ? `${m.firstName} ${m.lastName}` : m.email}
-                </option>
-              ))}
-            </select>
-            {errors.assignee && <p className="text-red-500 text-sm mt-1">{errors.assignee}</p>}
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Select Assignees
+            </label>
+
+            {projectMembers.length > 0 && (
+              <div
+                className={`max-h-32 overflow-y-auto border rounded-lg p-2 space-y-2 ${
+                  errors.assignee ? "border-red-500" : "border-gray-300"
+                }`}
+              >
+                {projectMembers.map((m) => (
+                  <label
+                    key={m._id}
+                    className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={formData.assignee.includes(m._id)}
+                      onChange={() => handleAssigneeToggle(m._id)}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <span className="text-gray-700">
+                      {m.firstName ? `${m.firstName} ${m.lastName}` : m.email}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
+
+            {errors.assignee && (
+              <p className="text-red-500 text-xs mt-1">{errors.assignee}</p>
+            )}
           </div>
 
           {/* Priority */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Priority
+            </label>
             <select
               value={formData.priority}
-              onChange={(e) => setFormData(prev => ({ ...prev, priority: e.target.value }))}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, priority: e.target.value }))
+              }
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="low">Low</option>
@@ -484,24 +504,62 @@ function QuickAddModal({ isOpen, onClose ,taskToEdit ,currentProjectId}) {
           </div>
         </div>
 
-        {/* 🟦 Due Date */}
+        {/* Selected Assignees */}
+        {formData.assignee.length > 0 && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Selected Assignees ({formData.assignee.length})
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {formData.assignee.map((id) => {
+                const member = projectMembers.find((m) => m._id === id);
+                return (
+                  <span
+                    key={id}
+                    className="inline-flex items-center bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-1 rounded-full"
+                  >
+                    {member?.firstName
+                      ? `${member.firstName} ${member.lastName}`
+                      : member?.email || id}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveAssignee(id)}
+                      className="ml-1 text-blue-600 hover:text-blue-800 focus:outline-none"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Due Date */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Due Date</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Due Date
+          </label>
           <input
             type="date"
             name="dueDate"
             value={formData.dueDate}
             onChange={handleInputChange}
             className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none ${
-              errors.dueDate ? 'border-red-500 ring-red-300' : 'border-gray-300 focus:ring-blue-500'
+              errors.dueDate
+                ? "border-red-500 ring-red-300"
+                : "border-gray-300 focus:ring-blue-500"
             }`}
           />
-          {errors.dueDate && <p className="text-red-500 text-sm mt-1">{errors.dueDate}</p>}
+          {errors.dueDate && (
+            <p className="text-red-500 text-sm mt-1">{errors.dueDate}</p>
+          )}
         </div>
 
-        {/* 🟦 Buttons */}
-        <div className="flex justify-end space-x-3 pt-4">
+        {/* Buttons */}
+        <div className="flex justify-end space-x-2 pt-4">
           <Button
+            type="button"
             variant="outline"
             onClick={() => {
               onClose();
@@ -512,14 +570,14 @@ function QuickAddModal({ isOpen, onClose ,taskToEdit ,currentProjectId}) {
             Cancel
           </Button>
           <Button type="submit">
-          {taskToEdit ? "Update Task" : "Create Task"}
-        </Button>
-
+            {taskToEdit ? "Update Task" : "Create Task"}
+          </Button>
         </div>
       </form>
     </Modal>
   );
 }
+
 
 export default function TasksPage() {
     const dispatch = useDispatch();

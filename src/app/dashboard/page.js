@@ -26,14 +26,11 @@ function QuickAddTaskModal({ isOpen, onClose }) {
 
   const [formData, setFormData] = useState(initialState);
   const [errors, setErrors] = useState({});
-  // const [projectList, setProjectList] = useState([]);
-
   const dispatch = useDispatch();
   const projectList = useSelector(state => state.project.projects);
-
   const [projectMembers, setProjectMembers] = useState([]);
 
-  // 🧼 Reset form when modal is closed
+  // Reset form on close
   useEffect(() => {
     if (!isOpen) {
       setFormData(initialState);
@@ -42,27 +39,19 @@ function QuickAddTaskModal({ isOpen, onClose }) {
     }
   }, [isOpen]);
 
-  // 🧠 Fetch all projects
-  useEffect(()=>{
+  // Fetch all projects
+  useEffect(() => {
     dispatch(fetchProjects());
-  },[dispatch]);
+  }, [dispatch]);
 
-  // 🧠 Handle project change and fetch members
+  // Handle project change
   const handleProjectChange = async (e) => {
     const selectedProjectId = e.target.value;
     setFormData(prev => ({ ...prev, project: selectedProjectId, assignee: [] }));
-    
-    // Clear project error when user selects a project
-    if (errors.project) {
-      setErrors(prev => ({ ...prev, project: '' }));
-    }
+    if (errors.project) setErrors(prev => ({ ...prev, project: '' }));
 
     const selectedProject = projectList.find(p => String(p._id) === String(selectedProjectId));
-
-    if (!selectedProject) {
-      setProjectMembers([]);
-      return;
-    }
+    if (!selectedProject) return setProjectMembers([]);
 
     try {
       const query = selectedProject.members.map(id => `_id=${id}`).join('&');
@@ -75,18 +64,14 @@ function QuickAddTaskModal({ isOpen, onClose }) {
     }
   };
 
-  // 📥 Handle input field changes
+  // Input change handler
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    
-    // Clear specific field error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
   };
 
-  // ✅ Validate form before submit
+  // Validate
   const validateForm = () => {
     const newErrors = {};
     if (!formData.project) newErrors.project = 'Project is required';
@@ -95,12 +80,11 @@ function QuickAddTaskModal({ isOpen, onClose }) {
       newErrors.description = 'Description must be at least 10 characters';
     if (formData.assignee.length === 0) newErrors.assignee = 'Select at least one assignee';
     if (!formData.dueDate) newErrors.dueDate = 'Due date is required';
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  // 🚀 Submit task
+  // Submit
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
@@ -111,79 +95,79 @@ function QuickAddTaskModal({ isOpen, onClose }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
-
       const data = await res.json();
       if (res.ok) {
-        console.log('Task created:', data.task);
-        setFormData(initialState); // ✅ Reset on success
-        setErrors({});
-        onClose(); // ✅ Close modal
         toast.success('Task added successfully!');
-
+        setFormData(initialState);
+        setErrors({});
+        onClose();
       } else {
         toast.error(data.message || 'Failed to add task');
-        console.error('Create failed:', data.error);
       }
     } catch (error) {
-      toast.error(data.message || 'Error submitting task');
-      console.error('Error submitting task:', error);
+      toast.error('Error submitting task');
+      console.error(error);
     }
   };
 
-  // Handle assignee selection change
-  const handleAssigneeChange = (e) => {
-    const selected = Array.from(e.target.selectedOptions, opt => opt.value);
-    setFormData(prev => ({ ...prev, assignee: selected }));
-    
-    // Clear assignee error when user selects someone
-    if (errors.assignee && selected.length > 0) {
-      setErrors(prev => ({ ...prev, assignee: '' }));
-    }
+  // Assignee checkbox toggle
+  const handleAssigneeToggle = (id) => {
+    setErrors(prev => ({ ...prev, assignee: '' }));
+    setFormData(prev => {
+      const updated = prev.assignee.includes(id)
+        ? prev.assignee.filter(a => a !== id)
+        : [...prev.assignee, id];
+      return { ...prev, assignee: updated };
+    });
+  };
+
+  // Remove assignee
+  const handleRemoveAssignee = (id) => {
+    setFormData(prev => ({
+      ...prev,
+      assignee: prev.assignee.filter(a => a !== id)
+    }));
   };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Create New Task" size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
 
-        {/* 🟦 Project */}
+        {/* Project */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Project</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Project</label>
           <select
             value={formData.project}
             onChange={handleProjectChange}
-            className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none ${
+            className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none ${
               errors.project ? 'border-red-500 ring-red-300' : 'border-gray-300 focus:ring-blue-500'
             }`}
           >
-        <option value="">Select a project</option>
-          {projectList.length > 0 &&
-            projectList.map((p) => (
-              <option key={p._id} value={p._id}>
-                {p.name}
-              </option>
+            <option value="">-- Choose a project --</option>
+            {projectList.map((p) => (
+              <option key={p._id} value={p._id}>{p.name}</option>
             ))}
-
           </select>
           {errors.project && <p className="text-red-500 text-sm mt-1">{errors.project}</p>}
         </div>
 
-        {/* 🟦 Title */}
+        {/* Title */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Task Title</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Task Title</label>
           <input
             type="text"
             name="title"
             value={formData.title}
             onChange={handleInputChange}
-            className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none ${
+            className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none ${
               errors.title ? 'border-red-500 ring-red-300' : 'border-gray-300 focus:ring-blue-500'
             }`}
-            placeholder="Enter task title..."
+            placeholder="Enter task title"
           />
           {errors.title && <p className="text-red-500 text-sm mt-1">{errors.title}</p>}
         </div>
 
-        {/* 🟦 Description */}
+        {/* Description */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
           <textarea
@@ -199,34 +183,111 @@ function QuickAddTaskModal({ isOpen, onClose }) {
           {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description}</p>}
         </div>
 
-        {/* 🟦 Assignee + Priority */}
-        <div className="grid grid-cols-2 gap-4">
-          {/* Assignee */}
+        {/* Assignees + Priority */}
+        {/* Assignees + Priority */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Assignees */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Assignee</label>
-            <select
-              multiple
-              value={formData.assignee}
-              onChange={handleAssigneeChange}
-              className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none ${
-                errors.assignee ? 'border-red-500 ring-red-300' : 'border-gray-300 focus:ring-blue-500'
-              }`}
-            >
-              {projectMembers.map(m => (
-                <option key={m._id} value={m._id}>
-                  {m.firstName ? `${m.firstName} ${m.lastName}` : m.email}
-                </option>
-              ))}
-            </select>
-            {errors.assignee && <p className="text-red-500 text-sm mt-1">{errors.assignee}</p>}
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Select Assignees
+            </label>
+
+            {/* Checkbox list */}
+            {formData.project && projectMembers.length > 0 && (
+              <div
+                className={`max-h-32 overflow-y-auto border rounded-lg p-2 space-y-2 ${
+                  errors.assignee ? 'border-red-500' : 'border-gray-300'
+                }`}
+              >
+                {projectMembers.map((m) => (
+                  <label
+                    key={m._id}
+                    className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={formData.assignee.includes(m._id)}
+                      onChange={() => handleAssigneeToggle(m._id)}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <span>
+                      {m.firstName ? `${m.firstName} ${m.lastName}` : m.email}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
+
+            {/* No members available */}
+            {formData.project && projectMembers.length === 0 && (
+              <div className="border border-yellow-200 rounded-lg p-4 bg-yellow-50">
+                <div className="flex items-center space-x-2">
+                  <svg
+                    className="h-5 w-5 text-yellow-500"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                    />
+                  </svg>
+                  <span className="text-sm text-yellow-800 font-medium">
+                    No members in this project
+                  </span>
+                </div>
+                <p className="text-xs text-yellow-700 mt-1 ml-7">
+                  This project doesn’t have any members yet. Contact your administrator
+                  to add members.
+                </p>
+              </div>
+            )}
+
+            {/* Project not selected */}
+            {!formData.project && (
+              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <div className="flex items-center space-x-2">
+                  <svg
+                    className="h-5 w-5 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M17 20h5v-2a3 3 0 00-5.196-2.132M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.196-2.132M7 20v-2c0-.656.126-1.283.356-1.857M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                  </svg>
+                  <span className="text-sm text-gray-600 font-medium">
+                    Select a project to view members
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1 ml-7">
+                  Choose a project from the dropdown above to see available assignees
+                </p>
+              </div>
+            )}
+
+            {errors.assignee && (
+              <p className="text-red-500 text-xs mt-1">{errors.assignee}</p>
+            )}
           </div>
 
           {/* Priority */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Priority
+            </label>
             <select
               value={formData.priority}
-              onChange={(e) => setFormData(prev => ({ ...prev, priority: e.target.value }))}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, priority: e.target.value }))
+              }
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="low">Low</option>
@@ -236,22 +297,53 @@ function QuickAddTaskModal({ isOpen, onClose }) {
           </div>
         </div>
 
-        {/* 🟦 Due Date */}
+
+
+        {/* Selected Assignees */}
+        {formData.assignee.length > 0 && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Selected Assignees ({formData.assignee.length})
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {formData.assignee.map(id => {
+                const user = projectMembers.find(u => u._id === id);
+                return (
+                  <span
+                    key={id}
+                    className="inline-flex items-center bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-1 rounded-full"
+                  >
+                    {user ? `${user.firstName} ${user.lastName}` : id}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveAssignee(id)}
+                      className="ml-1 text-blue-600 hover:text-blue-800 focus:outline-none"
+                    >
+                      ×
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Due Date */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Due Date</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
           <input
             type="date"
             name="dueDate"
             value={formData.dueDate}
             onChange={handleInputChange}
-            className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none ${
+            className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${
               errors.dueDate ? 'border-red-500 ring-red-300' : 'border-gray-300 focus:ring-blue-500'
             }`}
           />
           {errors.dueDate && <p className="text-red-500 text-sm mt-1">{errors.dueDate}</p>}
         </div>
 
-        {/* 🟦 Buttons */}
+        {/* Buttons */}
         <div className="flex justify-end space-x-3 pt-4">
           <Button
             variant="outline"
@@ -269,6 +361,7 @@ function QuickAddTaskModal({ isOpen, onClose }) {
     </Modal>
   );
 }
+
 
 
 

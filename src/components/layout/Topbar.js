@@ -90,297 +90,349 @@ export default function Topbar({ onMenuClick }) {
 if (!user) return null; // optional: loading state
   
   
-  function AddProjectModal({ isOpen, onClose }) {
-    const [formData, setFormData] = useState({
-      name: '',
-      description: '',
-      team: '',
-      members: [],
-      startDate: '',
-      endDate: '',
-      priority: 'medium',
-    });
-  
-    const [availableMembers, setAvailableMembers] = useState([]);
-    const [errors, setErrors] = useState({});
-    const [loading, setLoading] = useState(false);
-    const [teamMembers ,setTeamMembers] =useState({});
-    const dispatch = useDispatch();
+function AddProjectModal({ isOpen, onClose }) {
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    team: '',
+    members: [],
+    startDate: '',
+    endDate: '',
+    priority: 'medium',
+  });
 
-    const { membersByTeam, loading: membersLoading, error: membersError } =
+  const [availableMembers, setAvailableMembers] = useState([]);
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [teamMembers, setTeamMembers] = useState({});
+  const dispatch = useDispatch();
+
+  const { membersByTeam, loading: membersLoading, error: membersError } =
     useSelector((state) => state.team);
-  
-    
-  
 
-  
-    useEffect(() => {
-      if (isOpen && Object.keys(membersByTeam).length === 0) {
-        dispatch(fetchTeamMembers());
-      }
-    }, [isOpen, dispatch, membersByTeam]);
+  useEffect(() => {
+    if (isOpen && Object.keys(membersByTeam).length === 0) {
+      dispatch(fetchTeamMembers());
+    }
+  }, [isOpen, dispatch, membersByTeam]);
 
-  
-    const validate = () => {
-      const newErrors = {};
-      if (!formData.name.trim()) newErrors.name = 'Project name is required';
-      if (!formData.description.trim()) {
-        newErrors.description = 'Description is required';
-      } else if (formData.description.trim().length < 10) {
-        newErrors.description = 'Must be at least 10 characters';
-      }
-      if (!formData.team) newErrors.team = 'Team selection is required';
-      if (formData.members.length === 0) newErrors.members = 'Select at least one member';
-      if (!formData.startDate) newErrors.startDate = 'Start date is required';
-      if (!formData.endDate) newErrors.endDate = 'End date is required';
-      return newErrors;
-    };
-  
-    const handleInputChange = (e) => {
-      const { name, value } = e.target;
-  
-      setErrors((prev) => ({ ...prev, [name]: '' }));
-  
-      setFormData((prev) => ({
-        ...prev,
-        [name]: value,
-      }));
-    };
-  
-    const handleTeamChange = (e) => {
+  const validate = () => {
+    const newErrors = {};
+    if (!formData.name.trim()) newErrors.name = 'Project name is required';
+    if (!formData.description.trim()) {
+      newErrors.description = 'Description is required';
+    } else if (formData.description.trim().length < 10) {
+      newErrors.description = 'Must be at least 10 characters';
+    }
+    if (!formData.team) newErrors.team = 'Team selection is required';
+    if (formData.members.length === 0) newErrors.members = 'Select at least one member';
+    if (!formData.startDate) newErrors.startDate = 'Start date is required';
+    if (!formData.endDate) newErrors.endDate = 'End date is required';
+    return newErrors;
+  };
 
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
 
-      const team = e.target.value;
-      setErrors((prev) => ({ ...prev, team: '', members: '' }));
-      setFormData((prev) => ({ ...prev, team, members: [] }));
-      setAvailableMembers(membersByTeam[team] || []);
-    };
-  
-    const handleMemberChange = (e) => {
-      const selected = Array.from(e.target.selectedOptions, (opt) => opt.value);
-      setErrors((prev) => ({ ...prev, members: '' }));
-      setFormData((prev) => ({ ...prev, members: selected }));
-    };
-  
-    const handleSubmit = async (e) => {
-      e.preventDefault();
-      const validationErrors = validate();
-      setErrors(validationErrors);
-      if (Object.keys(validationErrors).length > 0) return;
-  
-      setLoading(true);
-      try {
-        const res = await fetch('/api/project', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData),
+    setErrors((prev) => ({ ...prev, [name]: '' }));
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleTeamChange = (e) => {
+    const team = e.target.value;
+    setErrors((prev) => ({ ...prev, team: '', members: '' }));
+    setFormData((prev) => ({ ...prev, team, members: [] }));
+    setAvailableMembers(membersByTeam[team] || []);
+  };
+
+  // Updated member selection handler for checkboxes
+  const handleMemberToggle = (memberId) => {
+    setErrors((prev) => ({ ...prev, members: '' }));
+    setFormData((prev) => {
+      const updatedMembers = prev.members.includes(memberId)
+        ? prev.members.filter(id => id !== memberId)
+        : [...prev.members, memberId];
+      
+      return { ...prev, members: updatedMembers };
+    });
+  };
+
+  // Remove member from selected list
+  const handleRemoveMember = (memberId) => {
+    setFormData((prev) => ({
+      ...prev,
+      members: prev.members.filter(id => id !== memberId)
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const validationErrors = validate();
+    setErrors(validationErrors);
+    if (Object.keys(validationErrors).length > 0) return;
+
+    setLoading(true);
+    try {
+      const res = await fetch('/api/project', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      const resData = await res.json();
+      console.log('📥 data received:', resData);
+      
+      if (res.ok && resData.success) {
+        const newProject = {
+          ...resData.data,
+          id: resData.data._id,
+        };
+      
+        dispatch(addProject(newProject));
+        
+        toast.success('New project added successfully!');
+        setFormData({
+          name: '',
+          description: '',
+          team: '',
+          members: [],
+          startDate: '',
+          endDate: '',
+          priority: 'medium',
         });
-  
-        const resData = await res.json();
-        console.log('📥 data received:', resData);
-        
-        // ✅ Destructure the actual project from resData
-        if (res.ok && resData.success) {
-          const newProject = {
-            ...resData.data,      // <- This is the actual project object
-            id: resData.data._id, // <- Optional if needed
-          };
-        
-          dispatch(addProject(newProject));
-          
-          toast.success('New project added successfully!');
-          setFormData({
-            name: '',
-            description: '',
-            team: '',
-            members: [],
-            startDate: '',
-            endDate: '',
-            priority: 'medium',
-          });
-          setAvailableMembers([]);
-          onClose();
-        } else {
-          toast.error(data.message || 'Failed to add new project');
-        }
-      } catch (err) {
-        toast.error('Server error');
-        console.error('❌ Submit error:', err);
-      } finally {
-        setLoading(false);
+        setAvailableMembers([]);
+        onClose();
+      } else {
+        toast.error(resData.message || 'Failed to add new project');
       }
-    };
-  
-    if (!isOpen) return null;
-  
-    return (
-      <Modal isOpen={isOpen} onClose={onClose} title="Add new Project" size="sm">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Project Name</label>
-            <input
-              type="text"
-              name="name"
-              value={formData.name}
-              onChange={handleInputChange}
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 text-sm ${
-                errors.name ? 'border-red-500 ring-red-300' : 'border-gray-300 focus:ring-blue-500'
-              }`}
-              placeholder="Enter project name"
-            />
-            {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
-          </div>
-  
-          {/* Description */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-            <textarea
-              name="description"
-              value={formData.description}
-              onChange={handleInputChange}
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 text-sm resize-none ${
-                errors.description ? 'border-red-500 ring-red-300' : 'border-gray-300 focus:ring-blue-500'
-              }`}
-              rows={3}
-              placeholder="Minimum 10 characters"
-            />
-            {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description}</p>}
-          </div>
-  
-          {/* Team and Members */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Team</label>
-              <select
-                name="team"
-                value={formData.team}
-                onChange={handleTeamChange}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${
-                  errors.team ? 'border-red-500 ring-red-300' : 'border-gray-300 focus:ring-blue-500'
-                }`}
-              >
-                <option value="">-- Choose a team --</option>
-                <option value="frontend">Frontend</option>
-                <option value="backend">Backend</option>
-                <option value="design">Design</option>
-              </select>
-              {errors.team && <p className="text-red-500 text-sm mt-1">{errors.team}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Select Team Members
-              </label>
+    } catch (err) {
+      toast.error('Server error');
+      console.error('❌ Submit error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-              <select
-                multiple
-                disabled={!formData.team}
-                value={formData.members}
-                onChange={(e) => {
-                  const selected = Array.from(e.target.selectedOptions).map((opt) => opt.value);
-                  setFormData({ ...formData, members: selected });
+  if (!isOpen) return null;
 
-                  if (selected.length === 0) {
-                    setErrors((prev) => ({
-                      ...prev,
-                      members: 'Please select at least one member.',
-                    }));
-                  } else {
-                    setErrors((prev) => ({ ...prev, members: '' }));
-                  }
-                }}
-                className={
-                  'w-full h-36 px-4 py-3 border rounded-lg shadow-sm text-sm bg-white text-gray-700 ' +
-                  'focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed ' +
-                  (errors.members
-                    ? 'border-red-500 focus:ring-red-400'
-                    : 'border-gray-300 focus:ring-blue-500')
-                }
-              >
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Add new Project" size="sm">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Name */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Project Name</label>
+          <input
+            type="text"
+            name="name"
+            value={formData.name}
+            onChange={handleInputChange}
+            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 text-sm ${
+              errors.name ? 'border-red-500 ring-red-300' : 'border-gray-300 focus:ring-blue-500'
+            }`}
+            placeholder="Enter project name"
+          />
+          {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
+        </div>
+
+        {/* Description */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+          <textarea
+            name="description"
+            value={formData.description}
+            onChange={handleInputChange}
+            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 text-sm resize-none ${
+              errors.description ? 'border-red-500 ring-red-300' : 'border-gray-300 focus:ring-blue-500'
+            }`}
+            rows={3}
+            placeholder="Minimum 10 characters"
+          />
+          {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description}</p>}
+        </div>
+
+        {/* Team and Members */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Team</label>
+            <select
+              name="team"
+              value={formData.team}
+              onChange={handleTeamChange}
+              className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${
+                errors.team ? 'border-red-500 ring-red-300' : 'border-gray-300 focus:ring-blue-500'
+              }`}
+            >
+              <option value="">-- Choose a team --</option>
+              <option value="frontend">Frontend</option>
+              <option value="backend">Backend</option>
+              <option value="design">Design</option>
+            </select>
+            {errors.team && <p className="text-red-500 text-sm mt-1">{errors.team}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Select Team Members
+            </label>
+
+            {/* Loading state */}
+            {membersLoading && formData.team && (
+              <div className="flex items-center justify-center py-4 text-sm text-gray-500">
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Loading members...
+              </div>
+            )}
+
+            {/* Checkbox list for team members */}
+            {!membersLoading && availableMembers.length > 0 && (
+              <div className={`max-h-32 overflow-y-auto border rounded-lg p-2 space-y-2 ${
+                errors.members ? 'border-red-500' : 'border-gray-300'
+              }`}>
                 {availableMembers.map((member) => (
-                  <option key={member.name} value={member._id}>
-                  {member.name}
-                </option>
-                
+                  <label
+                    key={member._id}
+                    className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={formData.members.includes(member._id)}
+                      onChange={() => handleMemberToggle(member._id)}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <span className="text-gray-700">{member.name}</span>
+                  </label>
                 ))}
-              </select>
+              </div>
+            )}
 
-              {errors.members && (
-                <p className="text-red-500 text-xs mt-1">{errors.members}</p>
-              )}
+            {/* No members available */}
+            {/* {!membersLoading && formData.team && availableMembers.length === 0 && (
+              <div className="border border-yellow-200 rounded-lg p-4 bg-yellow-50">
+                <div className="flex items-center space-x-2">
+                  <svg className="h-5 w-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                  <span className="text-sm text-yellow-800 font-medium">No members in this team</span>
+                </div>
+                <p className="text-xs text-yellow-700 mt-1 ml-7">This team doesn't have any members yet. Contact your administrator to add members.</p>
+              </div>
+            )} */}
 
-              {formData.members.map((mId) => {
-                const user = availableMembers.find((mem) => mem._id === mId);
+            {/* Team not selected */}
+            {!formData.team && (
+              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <div className="flex items-center space-x-2">
+                  <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.196-2.132M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.196-2.132M7 20v-2c0-.656.126-1.283.356-1.857M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span className="text-sm text-gray-600 font-medium">Select a team to view members</span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1 ml-7">Choose a team from the dropdown above to see available team members</p>
+              </div>
+            )}
+
+            {errors.members && (
+              <p className="text-red-500 text-xs mt-1">{errors.members}</p>
+            )}
+          </div>
+        </div>
+
+        {/* Selected Members Display */}
+        {formData.members.length > 0 && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Selected Members ({formData.members.length})
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {formData.members.map((memberId) => {
+                const member = availableMembers.find((mem) => mem._id === memberId);
                 return (
-                  <span key={mId} className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                    {user?.name || mId}
+                  <span
+                    key={memberId}
+                    className="inline-flex items-center bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-1 rounded-full"
+                  >
+                    {member?.name || memberId}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveMember(memberId)}
+                      className="ml-1 text-blue-600 hover:text-blue-800 focus:outline-none"
+                    >
+                      <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </button>
                   </span>
                 );
               })}
-
-            </div>
-
-
-          </div>
-  
-          {/* Dates */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-              <input
-                type="date"
-                name="startDate"
-                value={formData.startDate}
-                onChange={handleInputChange}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${
-                  errors.startDate ? 'border-red-500 ring-red-300' : 'border-gray-300 focus:ring-blue-500'
-                }`}
-              />
-              {errors.startDate && <p className="text-red-500 text-sm mt-1">{errors.startDate}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-              <input
-                type="date"
-                name="endDate"
-                value={formData.endDate}
-                onChange={handleInputChange}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${
-                  errors.endDate ? 'border-red-500 ring-red-300' : 'border-gray-300 focus:ring-blue-500'
-                }`}
-              />
-              {errors.endDate && <p className="text-red-500 text-sm mt-1">{errors.endDate}</p>}
             </div>
           </div>
-  
-          {/* Priority */}
+        )}
+
+        {/* Dates */}
+        <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
-            <select
-              name="priority"
-              value={formData.priority}
+            <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+            <input
+              type="date"
+              name="startDate"
+              value={formData.startDate}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-            </select>
+              className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${
+                errors.startDate ? 'border-red-500 ring-red-300' : 'border-gray-300 focus:ring-blue-500'
+              }`}
+            />
+            {errors.startDate && <p className="text-red-500 text-sm mt-1">{errors.startDate}</p>}
           </div>
-  
-          {/* Buttons */}
-          <div className="flex justify-end space-x-2 pt-4">
-            <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? 'Creating...' : 'Create Project'}
-            </Button>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+            <input
+              type="date"
+              name="endDate"
+              value={formData.endDate}
+              onChange={handleInputChange}
+              className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${
+                errors.endDate ? 'border-red-500 ring-red-300' : 'border-gray-300 focus:ring-blue-500'
+              }`}
+            />
+            {errors.endDate && <p className="text-red-500 text-sm mt-1">{errors.endDate}</p>}
           </div>
-        </form>
-      </Modal>
-    );
-  }
+        </div>
+
+        {/* Priority */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+          <select
+            name="priority"
+            value={formData.priority}
+            onChange={handleInputChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+        </div>
+
+        {/* Buttons */}
+        <div className="flex justify-end space-x-2 pt-4">
+          <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={loading}>
+            {loading ? 'Creating...' : 'Create Project'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
   
   
   return (

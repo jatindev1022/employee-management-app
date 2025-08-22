@@ -6,6 +6,9 @@ import Loader from '@/components/ui/Loader';
 import { Toaster, toast } from 'react-hot-toast';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from "react-redux";
+import { setUser } from "@/store/slices/userSlice"; // adjust the path
+
 
 export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
@@ -29,6 +32,10 @@ export default function ProfilePage() {
     github: '',
     profileImage: '', // Make sure this is included
   });
+
+  const dispatch = useDispatch();
+  const user = useSelector((state) => state.user.data);
+
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -119,22 +126,17 @@ export default function ProfilePage() {
       
       
       if (result.success && result.user) {
-        console.log('Profile updated:', result.user);
-        
-        // Update form data with the response
+        // Update local state
         setFormData(result.user);
-        
-        // Update image preview with the new image URL from server
-        if (result.user.profileImage) {
-          setImagePreview(result.user.profileImage);
-        }
-        
-        // Clear selected file and exit edit mode
+        if (result.user.profileImage) setImagePreview(result.user.profileImage);
+    
+        // Update Redux store
+        dispatch(setUser(result.user)); // ✅ this ensures it's updated globally
+    
         setSelectedFile(null);
         setIsEditing(false);
-        
-        toast.success('Profile updated successfully!');
-      } else {
+        toast.success("Profile updated successfully!");
+    } else {
         console.error('Update failed:', result.error || result.message);
         toast.error('Failed to update profile. Please try again.');
       }
